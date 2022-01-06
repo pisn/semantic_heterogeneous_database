@@ -2,8 +2,6 @@ from bson.objectid import ObjectId
 from pymongo import MongoClient
 import json
 
-from pymongo.message import update
-
 class InterscityCollection:
     def __init__(self, databaseName, collectionName) -> None:
         self.client = MongoClient(host='localhost')
@@ -32,7 +30,7 @@ class InterscityCollection:
     def insert_one(self, jsonString):
         o = json.loads(jsonString)        
 
-        insertedDocument = self.collection.insert_one({("version_" + str(self.current_version)): o, 'first_version': self.current_version, 'last_version': self.current_version})        
+        insertedDocument = self.collection.insert_one({("version_" + str(self.current_version)): o, 'first_version': self.current_version, 'last_version': self.current_version, 'original_version' : self.current_version})        
 
         for field in o:
             if not field.startswith('_'):
@@ -76,41 +74,63 @@ class InterscityCollection:
         self.collection_columns.update_one({'name':fieldName}, {'$set' : {'last_version' : self.current_version}})
 
         if(eagerlyTranslate):
-            documentsContainingColumn = self.collection_columns.find_one({"name":fieldName})['documents']
+            for document in self.collection.find():                
+                self.evolute(document, self.current_version)
 
-            for documentId in documentsContainingColumn:
-                document = self.collection.find_one(ObjectId(documentId))
-                document = document['version_' + str(self.current_version-1)] #Estou assumindo que existe a versao anterior. Mas pode ter havido alterações lazy antes. Preciso percorrer de alguma forma
-
-                if(document[fieldName] == oldValue):
-                    document[fieldName] = newValue
-                
-                #put a new version even if has no changes
-                self.collection.update_one({'_id' : documentId}, {'$set' : {'version_' + str(self.current_version) : document, 'last_version': self.current_version}})
                 
     def evolute(self, document, targetVersion):
         lastVersion = int(document['last_version'])
+        firstVersion = int(document['first_version'])
 
-        while lastVersion < targetVersion:
-            lastVersionDocument = document['version_' + str(lastVersion)]
+        if targetVersion > lastVersion:
+            while lastVersion < targetVersion:
+                lastVersionDocument = document['version_' + str(lastVersion)]
 
-            evolutionOperation = self.collection_versions.find_one({'version_number' : lastVersion})
+                versionRegister = self.collection_versions.find_one({'version_number' : lastVersion})
 
-            if(evolutionOperation['type'] == 'translation'):
-                field = evolutionOperation['field']
-                oldValue = evolutionOperation['from']
-                newValue = evolutionOperation['to']
+                if(versionRegister == None):
+                    raise 'version register not found'
 
-                if(field in lastVersionDocument):
-                    if lastVersionDocument[field] == oldValue:
-                        lastVersionDocument[field] = newValue
-            else:
-                raise 'Unrecognized evolution type:' + evolutionOperation['type']        
-            
-            lastVersion = lastVersion + 1
-            self.collection.update_one({'_id' : document['_id']}, {'$set': {'version_' + str(lastVersion) : lastVersionDocument, 'last_version':lastVersion}})
+                evolutionOperation = versionRegister['next_operation']
+
+                if(evolutionOperation['type'] == 'translation'):
+                    field = evolutionOperation['field']
+                    oldValue = evolutionOperation['from']
+                    newValue = evolutionOperation['to']
+
+                    if(field in lastVersionDocument):
+                        if lastVersionDocument[field] == oldValue:
+                            lastVersionDocument[field] = newValue
+                else:
+                    raise 'Unrecognized evolution type:' + evolutionOperation['type']        
                 
-        
+                lastVersion = lastVersion + 1
+                self.collection.update_one({'_id' : document['_id']}, {'$set': {'version_' + str(lastVersion) : lastVersionDocument, 'last_version':lastVersion}})                
+        else:
+            while firstVersion > targetVersion:
+                firstVersionDocument = document['version_' + str(firstVersion)]
+
+                versionRegister = self.collection_versions.find_one({'version_number' : firstVersion})
+
+                if(versionRegister == None):
+                    raise 'version register not found'
+
+                evolutionOperation = versionRegister['previous_operation']
+
+                if(evolutionOperation['type'] == 'translation'):
+                    field = evolutionOperation['field']
+                    oldValue = evolutionOperation['to']
+                    newValue = evolutionOperation['from']
+
+                    if(field in firstVersionDocument):
+                        if firstVersionDocument[field] == oldValue:
+                            firstVersionDocument[field] = newValue
+                else:
+                    raise 'Unrecognized evolution type:' + evolutionOperation['type']        
+                
+                firstVersion = firstVersion - 1
+                self.collection.update_one({'_id' : document['_id']}, {'$set': {'version_' + str(firstVersion) : firstVersionDocument, 'first_version':firstVersion}})                
+            
         
 
 myCollection = InterscityCollection('interscity', 'collectionTest')
