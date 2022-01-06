@@ -2,6 +2,8 @@ from bson.objectid import ObjectId
 from pymongo import MongoClient
 import json
 
+from pymongo.message import update
+
 class InterscityCollection:
     def __init__(self, databaseName, collectionName) -> None:
         self.client = MongoClient(host='localhost')
@@ -30,11 +32,14 @@ class InterscityCollection:
     def insert_one(self, jsonString):
         o = json.loads(jsonString)        
 
-        insertedDocument = self.collection.insert_one({("version_" + str(self.current_version)): o})
+        insertedDocument = self.collection.insert_one({("version_" + str(self.current_version)): o, 'first_version': self.current_version, 'last_version': self.current_version})        
 
         for field in o:
             if not field.startswith('_'):
-                self.collection_columns.update_one({'name': field}, {'$set' : {'name' : field}, '$push' : {'documents' : insertedDocument.inserted_id}}, upsert=True)
+                updateResult = self.collection_columns.update_one({'name': field}, {'$set' : {'name' : field}, '$push' : {'documents' : insertedDocument.inserted_id}}, upsert=True)
+                
+                if(updateResult.upserted_id != None):
+                    self.collection_columns.update_one({'_id':updateResult.upserted_id},{'$set' : {'first_version' : self.current_version ,'last_version': self.current_version}})
 
     def execute_translation(self, fieldName, oldValue, newValue, eagerlyTranslate):        
         #bater nas colunas e gerar novas versoes se eagerly
@@ -68,6 +73,8 @@ class InterscityCollection:
         self.collection_versions.insert_one(new_version)        
         self.current_version = self.current_version + 1
 
+        self.collection_columns.update_one({'name':fieldName}, {'$set' : {'last_version' : self.current_version}})
+
         if(eagerlyTranslate):
             documentsContainingColumn = self.collection_columns.find_one({"name":fieldName})['documents']
 
@@ -78,10 +85,30 @@ class InterscityCollection:
                 if(document[fieldName] == oldValue):
                     document[fieldName] = newValue
                 
-                #put a new version even if has no changes? Should I do this for every record in the database? (hint:no)
-                self.collection.update_one({'_id' : documentId}, {'$set' : {'version_' + str(self.current_version) : document}})
+                #put a new version even if has no changes
+                self.collection.update_one({'_id' : documentId}, {'$set' : {'version_' + str(self.current_version) : document, 'last_version': self.current_version}})
                 
+    def evolute(self, document, targetVersion):
+        lastVersion = int(document['last_version'])
 
+        while lastVersion < targetVersion:
+            lastVersionDocument = document['version_' + str(lastVersion)]
+
+            evolutionOperation = self.collection_versions.find_one({'version_number' : lastVersion})
+
+            if(evolutionOperation['type'] == 'translation'):
+                field = evolutionOperation['field']
+                oldValue = evolutionOperation['from']
+                newValue = evolutionOperation['to']
+
+                if(field in lastVersionDocument):
+                    if lastVersionDocument[field] == oldValue:
+                        lastVersionDocument[field] = newValue
+            else:
+                raise 'Unrecognized evolution type:' + evolutionOperation['type']        
+            
+            lastVersion = lastVersion + 1
+            self.collection.update_one({'_id' : document['_id']}, {'$set': {'version_' + str(lastVersion) : lastVersionDocument, 'last_version':lastVersion}})
                 
         
         
