@@ -39,9 +39,7 @@ class InterscityCollection:
                 if(updateResult.upserted_id != None):
                     self.collection_columns.update_one({'_id':updateResult.upserted_id},{'$set' : {'first_version' : self.current_version ,'last_version': self.current_version}})
 
-    def execute_translation(self, fieldName, oldValue, newValue, eagerlyTranslate):        
-        #bater nas colunas e gerar novas versoes se eagerly
-        #salvar traducao em algum lugar para ser consultada de qualquer maneira
+    def execute_translation(self, fieldName, oldValue, newValue, eagerlyTranslate):                
         new_version = {
             "current_version":1,
             "previous_version":self.current_version,
@@ -130,6 +128,13 @@ class InterscityCollection:
                 
                 firstVersion = firstVersion - 1
                 self.collection.update_one({'_id' : document['_id']}, {'$set': {'version_' + str(firstVersion) : firstVersionDocument, 'first_version':firstVersion}})                
+    
+    def query(self, query, version_number = None):
+        #Eu preciso depois permitir que seja o tempo da versao, nao o numero
+        #E tambem que dados possam ser inseridos com tempo anterior, e assumir a versao da época.
+
+        if(version_number == None):
+            version_number = self.current_version   
             
         
 
