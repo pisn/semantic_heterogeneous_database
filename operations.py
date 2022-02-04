@@ -154,7 +154,7 @@ class InterscityCollection:
 
         self.collection.update_one({'_id':rawDocument['_id']}, {'$set': {'_first_processed_version': rawDocument['_first_processed_version'], '_last_processed_version': rawDocument['_last_processed_version']}})
     
-    def query(self, query, version_number = None):
+    def query_specific(self, query, version_number = None):
         #Eu preciso depois permitir que seja o tempo da versao, nao o numero
         #E tambem que dados possam ser inseridos com tempo anterior, e assumir a versao da época.
 
@@ -165,7 +165,36 @@ class InterscityCollection:
         min_version_number = version_number
         
         ##obtaining version to be queried
-        for field in query.keys():
+        
+        to_process = []
+        to_process.append(query)  #Fazer isso aqui funcionar                   
+        
+        while len(to_process) > 0:
+            field = to_process.pop()
+
+            if isinstance(field, dict): 
+                if(len(field.keys()) > 1):
+                    for f in field.keys():
+                        to_process.append({field: field[f]})
+                    continue           
+                else:
+                    key = list(field.keys())[0]
+                    value = field[key]
+                    
+                    if not isinstance(value, str):
+                        to_process.append(value)
+                    
+                    field = key #keep process going for this iteration
+            
+            elif isinstance(field, list):
+                to_process.extend(field)
+                continue
+
+            if field[0] == '$': #pymongo operators like $and, $or, etc
+                # if isinstance(query[field],list):
+                #     to_process.extend(query[field])
+                continue                   
+
             fieldRegister = self.collection_columns.find_one({'field_name':field})
 
             if fieldRegister == None:
@@ -196,21 +225,63 @@ class InterscityCollection:
         query['_version_number'] = version_number ##Retornando registros traduzidos. 
         return self.collection_processed.find(query)
 
+    ##Before executing the query itself, lets translate all possible past terms from the query to current terms. 
+    ##We do translate registers, so we should also translate queries
+    def query(self, query):
+
+        queryTerms = {}        
 
         
-          
+        for field in query.keys():             
+            queryTerms[field] = set()
+            queryTerms[field].add(query[field])
+
+            to_process = []
+            to_process.append(query[field])
+
+            while len(to_process) > 0:
+                fieldValue = to_process.pop()
+                
+                versions = self.collection_versions.find({'next_operation.field':field,'next_operation.from':fieldValue})
+
+                if(versions.count() > 0):
+                    for version in versions:
+                        new_term = version['next_operation']['to']
+                        to_process.append(new_term)
+                else:
+                    queryTerms[field].add(fieldValue) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query
+        
+        
+        ##Como fazer quando tiver varios fields? Concatenar com um "or" seria a melhor solucao
+        ands = []
+
+        for field in queryTerms.keys():
+            ors = []
+
+            for value in queryTerms[field]:
+                ors.append({field:value})
+
+            ands.append({'$or' : ors})
+
+        finalQuery = {'$and' : ands}                  
+        
+        return self.query_specific(finalQuery)        
+
+    
+     
         
 
 myCollection = InterscityCollection('interscity', 'collectionTest')
-myCollection.insert_one('{"pais": "Brasil", "cidade":"Vila Rica"}')
-myCollection.insert_one('{"pais": "Brasil", "cidade":"Cuiabá"}')
-myCollection.insert_one('{"pais": "Brasil", "cidade":"Rio de Janeiro"}')
-myCollection.execute_translation("cidade","Vila Rica","Ouro Preto", False)        
-myCollection.insert_one('{"pais": "Brasil", "cidade":"São Paulo"}')
-testeQuery = myCollection.query({'cidade' : 'Ouro Preto'})
+# myCollection.insert_one('{"pais": "Brasil", "cidade":"Vila Rica"}')
+# myCollection.insert_one('{"pais": "Brasil", "cidade":"Cuiabá"}')
+# myCollection.insert_one('{"pais": "Brasil", "cidade":"Rio de Janeiro"}')
+# myCollection.execute_translation("cidade","Vila Rica","Ouro Preto", False)        
+# myCollection.insert_one('{"pais": "Brasil", "cidade":"São Paulo"}')
+# myCollection.insert_one('{"pais": "Brasil", "cidade":"Vila Rica"}')
+testeQuery = myCollection.query({'cidade' : 'Vila Rica', 'pais' : 'Brasil'})
 
 for record in testeQuery:
-    print(record['_id'])
+    print(record['cidade'])
 
 
 
