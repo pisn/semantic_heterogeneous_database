@@ -250,7 +250,8 @@ class InterscityCollection:
                         to_process.append(new_term)
                 else:
                     queryTerms[field].add(fieldValue) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query
-        
+
+                
         
         ##Como fazer quando tiver varios fields? Concatenar com um "or" seria a melhor solucao
         ands = []
@@ -272,13 +273,8 @@ class InterscityCollection:
         
 
 myCollection = InterscityCollection('interscity', 'collectionTest')
-# myCollection.insert_one('{"pais": "Brasil", "cidade":"Vila Rica"}')
-# myCollection.insert_one('{"pais": "Brasil", "cidade":"Cuiabá"}')
-# myCollection.insert_one('{"pais": "Brasil", "cidade":"Rio de Janeiro"}')
-# myCollection.execute_translation("cidade","Vila Rica","Ouro Preto", False)        
-# myCollection.insert_one('{"pais": "Brasil", "cidade":"São Paulo"}')
-# myCollection.insert_one('{"pais": "Brasil", "cidade":"Vila Rica"}')
-testeQuery = myCollection.query({'cidade' : 'Vila Rica', 'pais' : 'Brasil'})
+
+testeQuery = myCollection.query({'cidade' : 'Ouro Preto', 'pais' : 'Brasil'})
 
 for record in testeQuery:
     print(record['cidade'])
