@@ -1,3 +1,4 @@
+from concurrent.futures import process
 from platform import version
 from bson.objectid import ObjectId
 from pymongo import MongoClient
@@ -40,6 +41,7 @@ class InterscityCollection:
         p = json.loads(jsonString)
         p['_version_number'] = self.current_version
         p['_original_id'] = insertedDocument.inserted_id
+        p['_evoluted'] = False
 
         self.collection_processed.insert_one(p)
 
@@ -112,6 +114,7 @@ class InterscityCollection:
                     if(field in lastVersionDocument):
                         if lastVersionDocument[field] == oldValue:
                             lastVersionDocument[field] = newValue
+                            lastVersionDocument['_evoluted'] = True
                 else:
                     raise 'Unrecognized evolution type:' + evolutionOperation['type']        
                 
@@ -120,7 +123,7 @@ class InterscityCollection:
                 else: #Chegou a ultima versao disponivel, aumentar um ponto
                     lastVersion = self.current_version
                 
-                lastVersionDocument['_version_number'] = lastVersion
+                lastVersionDocument['_version_number'] = lastVersion                
                 rawDocument['_last_processed_version'] = lastVersion
 
                 self.collection_processed.insert_one(lastVersionDocument)
@@ -143,11 +146,12 @@ class InterscityCollection:
                     if(field in firstVersionDocument):
                         if firstVersionDocument[field] == oldValue:
                             firstVersionDocument[field] = newValue
+                            firstVersionDocument['_evoluted'] = True
                 else:
                     raise 'Unrecognized evolution type:' + evolutionOperation['type']        
                 
                 firstVersion = int(versionRegister['previous_version'])
-                firstVersionDocument['_version_number'] = firstVersion
+                firstVersionDocument['_version_number'] = firstVersion                
                 rawDocument['_first_processed_version'] = firstVersion
 
                 self.collection_processed.insert_one(firstVersionDocument)
@@ -268,16 +272,63 @@ class InterscityCollection:
         
         return self.query_specific(finalQuery)        
 
-    
+    def pretty_print(self, records):      
+
+        fieldLengths = {}
+             
+        records = list(records)
+        
+        for record in records:            
+
+            if record['_evoluted'] == True:
+                originalRecord = self.collection.find_one({'_id' : record['_original_id']})
+
+            for field in record.keys():               
+
+                if not field.startswith('_'):                    
+                    if(field not in fieldLengths):
+                        fieldLengths[field] = len(field) #Header is the first set length
+
+                    if record['_evoluted'] == True:
+                        processedValue = record[field]
+                        originalValue = originalRecord[field]
+
+                        if processedValue != originalValue:
+                            record[field] = f'{processedValue} (originaly: {originalValue})'
+
+                    if(fieldLengths[field] < len(record[field])):
+                        fieldLengths[field] = len(record[field])
+
+        lineLength = 0
+        for field in fieldLengths.keys():
+            p = '|' + field + ' '*(fieldLengths[field] - len(field))
+            print(p, end='')
+            lineLength = lineLength + len(p)
+        
+        print('|')                   
+        print ('-'*(lineLength+1))
+        
+        for record in records:            
+            for field in record.keys():  #calculate number of spaces so as fields have the same length in all records
+                if not field.startswith('_'):
+                    print('|' + record[field] + ' '*(fieldLengths[field] - len(record[field])), end='')
+            print('|')
+        
+        
+          
+
      
         
 
-myCollection = InterscityCollection('interscity', 'collectionTest')
-
-testeQuery = myCollection.query({'cidade' : 'Ouro Preto', 'pais' : 'Brasil'})
-
-for record in testeQuery:
-    print(record['cidade'])
+myCollection = InterscityCollection('interscity', 'collectionTest')     
+# myCollection.insert_one('{"pais": "Brasil", "cidade":"Vila Rica"}')
+# myCollection.insert_one('{"pais": "Brasil", "cidade":"Cuiabá"}')
+# myCollection.insert_one('{"pais": "Brasil", "cidade":"Rio de Janeiro"}')
+# myCollection.execute_translation("cidade","Vila Rica","Ouro Preto", False)        
+# myCollection.insert_one('{"pais": "Brasil", "cidade":"São Paulo"}')
+#testeQuery = myCollection.query({'cidade' : 'Vila Rica', 'pais' : 'Brasil'})
+testeQuery = myCollection.query({'pais' : 'Brasil'})
+myCollection.pretty_print(testeQuery)
 
 
 
