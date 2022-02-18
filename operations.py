@@ -1,7 +1,9 @@
+from argparse import ArgumentError
 from concurrent.futures import process
 from platform import version
 from bson.objectid import ObjectId
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING,DESCENDING
+from datetime import datetime
 import json
 
 class InterscityCollection:
@@ -20,6 +22,7 @@ class InterscityCollection:
            
             first_version = {
                 "current_version":1,
+                "version_valid_from":datetime(1,1,1),
                 "previous_version":None, 
                 "previous_operation":None,
                 "version_number":0, 
@@ -30,17 +33,24 @@ class InterscityCollection:
         else:
             self.current_version = self.current_version['version_number']
 
-    def insert_one(self, jsonString):
+    def insert_one(self, jsonString, valid_from_date:datetime):
+        versions = self.collection_versions.find({'version_valid_from':{'$lte' : valid_from_date}}).sort('version_valid_from',DESCENDING)
+        version = next(versions, None)
+
+        self.insert_one_by_version(jsonString, version['version_number'])
+
+    def insert_one_by_version(self, jsonString, versionNumber):
         o = json.loads(jsonString)        
-        o['_first_processed_version'] = self.current_version
-        o['_last_processed_version']=self.current_version
-        o['_original_version']=self.current_version       
+        o['_first_processed_version'] = versionNumber
+        o['_last_processed_version']=versionNumber
+        o['_original_version']=versionNumber               
 
         insertedDocument = self.collection.insert_one(o)        
 
         p = json.loads(jsonString)
-        p['_version_number'] = self.current_version
+        p['_version_number'] = versionNumber
         p['_original_id'] = insertedDocument.inserted_id
+        p['_original_version'] = versionNumber
         p['_evoluted'] = False
 
         self.collection_processed.insert_one(p)
@@ -50,12 +60,39 @@ class InterscityCollection:
                 updateResult = self.collection_columns.update_one({'field_name': field}, {'$set' : {'field_name' : field}, '$push' : {'documents' : insertedDocument.inserted_id}}, upsert=True)
                 
                 if(updateResult.upserted_id != None):
-                    self.collection_columns.update_one({'_id':updateResult.upserted_id},{'$set' : {'first_edit_version' : self.current_version ,'last_edit_version': self.current_version}})
+                    self.collection_columns.update_one({'_id':updateResult.upserted_id},{'$set' : {'first_edit_version' : versionNumber ,'last_edit_version': versionNumber}})
+    
+    #def insert_one_by_refdate(self, jsonString, refdate):
 
-    def execute_translation(self, fieldName, oldValue, newValue, eagerlyTranslate):                
+    def execute_translation(self, fieldName, oldValue, newValue, refDate : datetime): 
+        if not isinstance(refDate,datetime):
+            raise ArgumentError('RefDate argument is not a datetime.')
+
+
+        previous_version = self.collection_versions.find({'version_valid_from' : {'$lte' : refDate}}).sort('version_valid_from',-1)        
+        previous_version = next(previous_version, None)
+
+        next_version = self.collection_versions.find({'version_valid_from' : {'$gte' : refDate}}).sort('version_valid_from')        
+        
+        if(next_version.count() > 0):
+            next_version = next(next_version,None)
+            new_version_number = previous_version['version_number'] + (next_version['version_number'] - previous_version['version_number'])/2
+        else:
+            next_version = None
+            self.current_version = self.current_version + 1 #this is the newest version now
+            new_version_number = self.current_version
+            
+
+        ##Preciso invalidar tuplas processadas de versoes superiores a nova (no caso de incluir uma intermediaria), dado que podem incorrer em alterações na cadeia. 
+        ##Por causa disso, adicionar mudancas historicas depois do insert sempre deve acarretar em perda de performance? (checar em testes)
+        res = self.collection_processed.remove({'version_number': {'$gte': new_version_number}})
+        res = self.collection.update({'_last_processed_version': {'$gte':new_version_number}}, {'$set':{'_last_processed_version':previous_version['version_number']}})
+
+
         new_version = {
-            "current_version":1,
-            "previous_version":self.current_version,
+            "current_version": 1 if next_version == None else 0,
+            "version_valid_from":refDate,
+            "previous_version":previous_version['version_number'],
             "previous_operation": {
                 "type": "translation",
                 "field":fieldName,
@@ -64,8 +101,8 @@ class InterscityCollection:
             },
             "next_version":None,
             "next_operation":None,
-            "version_number":self.current_version + 1
-        }
+            "version_number":new_version_number
+        }        
 
         next_operation = {
             "type": "translation",
@@ -73,25 +110,32 @@ class InterscityCollection:
             "from":oldValue,
             "to":newValue
         }
-        
-        res = self.collection_versions.update_one({'current_version': 1}, {'$set' : {'current_version' : 0, 'next_operation': next_operation, 'next_version':self.current_version + 1}})
+
+        res = self.collection_versions.update_one({'version_number': previous_version['version_number']}, {'$set' : {'next_operation': next_operation, 'next_version':new_version_number}})
         
         if(res.matched_count != 1):
-            print("Current version not matched")
+            print("Previous version not matched")
 
-        self.collection_versions.insert_one(new_version)        
-        self.current_version = self.current_version + 1
+        if(next_version != None):
+            new_version['next_version'] = next_version['version_number']
+            new_version['next_operation'] = previous_version['next_operation']            
 
-        self.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'last_edit_version' : self.current_version}})
+            res = self.collection_versions.update_one({'version_number': next_version['version_number']},{'$set':{'previous_version':new_version_number}})        
+            if(res.matched_count != 1):
+                print("Next version not matched")
 
-        if(eagerlyTranslate):
-            for document in self.collection.find():                
-                self.evolute(document, self.current_version)
+        column = self.collection_columns.find_one({'field_name':fieldName}) 
+        if column['last_edit_version'] < new_version_number:
+            self.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'last_edit_version' : new_version_number}})
+        elif column['first_edit_version'] < new_version_number:
+            self.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'first_edit_version' : new_version_number}})        
+
+        self.collection_versions.insert_one(new_version)               
 
                 
     def evolute(self, rawDocument, targetVersion):
-        lastVersion = int(rawDocument['_last_processed_version'])
-        firstVersion = int(rawDocument['_first_processed_version'])        
+        lastVersion = float(rawDocument['_last_processed_version'])
+        firstVersion = float(rawDocument['_first_processed_version'])        
 
         if targetVersion > lastVersion:
             while lastVersion < targetVersion:                
@@ -119,7 +163,7 @@ class InterscityCollection:
                     raise 'Unrecognized evolution type:' + evolutionOperation['type']        
                 
                 if(versionRegister['next_version'] != None):
-                    lastVersion = int(versionRegister['next_version'])
+                    lastVersion = float(versionRegister['next_version'])
                 else: #Chegou a ultima versao disponivel, aumentar um ponto
                     lastVersion = self.current_version
                 
@@ -130,6 +174,7 @@ class InterscityCollection:
         else:
             while firstVersion > targetVersion:
                 firstVersionDocument = self.collection_processed.find_one({'_original_id' : rawDocument['_id'], '_version_number': firstVersion})                
+                firstVersionDocument.pop('_id')
 
                 versionRegister = self.collection_versions.find_one({'version_number' : firstVersion})
 
@@ -150,7 +195,7 @@ class InterscityCollection:
                 else:
                     raise 'Unrecognized evolution type:' + evolutionOperation['type']        
                 
-                firstVersion = int(versionRegister['previous_version'])
+                firstVersion = float(versionRegister['previous_version'])
                 firstVersionDocument['_version_number'] = firstVersion                
                 rawDocument['_first_processed_version'] = firstVersion
 
@@ -257,7 +302,6 @@ class InterscityCollection:
 
                 
         
-        ##Como fazer quando tiver varios fields? Concatenar com um "or" seria a melhor solucao
         ands = []
 
         for field in queryTerms.keys():
@@ -321,14 +365,11 @@ class InterscityCollection:
         
 
 myCollection = InterscityCollection('interscity', 'collectionTest')     
-# myCollection.insert_one('{"pais": "Brasil", "cidade":"Vila Rica"}')
-# myCollection.insert_one('{"pais": "Brasil", "cidade":"Cuiabá"}')
-# myCollection.insert_one('{"pais": "Brasil", "cidade":"Rio de Janeiro"}')
-# myCollection.execute_translation("cidade","Vila Rica","Ouro Preto", False)        
-# myCollection.insert_one('{"pais": "Brasil", "cidade":"São Paulo"}')
-#testeQuery = myCollection.query({'cidade' : 'Vila Rica', 'pais' : 'Brasil'})
+myCollection.insert_one('{"pais": "Brasil", "cidade":"Vila Rica"}', datetime(2001,1,1))
+myCollection.insert_one('{"pais": "Brasil", "cidade":"Cuiabá"}', datetime(2002,1,1))
+myCollection.insert_one('{"pais": "Brasil", "cidade":"Rio de Janeiro"}',datetime(2003,1,1))
+myCollection.execute_translation("cidade","Vila Rica","Ouro Preto", datetime(2002,6,1))        
+myCollection.insert_one('{"pais": "Brasil", "cidade":"São Paulo"}', datetime(2004,1,1))
+myCollection.execute_translation("cidade","Outra Cidade","São Petesburgo", datetime(2000,6,1))       
 testeQuery = myCollection.query({'pais' : 'Brasil'})
 myCollection.pretty_print(testeQuery)
-
-
-
