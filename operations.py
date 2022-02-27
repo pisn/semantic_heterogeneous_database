@@ -37,13 +37,14 @@ class InterscityCollection:
         versions = self.collection_versions.find({'version_valid_from':{'$lte' : valid_from_date}}).sort('version_valid_from',DESCENDING)
         version = next(versions, None)
 
-        self.insert_one_by_version(jsonString, version['version_number'])
+        self.insert_one_by_version(jsonString, version['version_number'], valid_from_date)
 
-    def insert_one_by_version(self, jsonString, versionNumber):
+    def insert_one_by_version(self, jsonString, versionNumber, valid_from_date:datetime):
         o = json.loads(jsonString)        
         o['_first_processed_version'] = versionNumber
         o['_last_processed_version']=versionNumber
-        o['_original_version']=versionNumber               
+        o['_original_version']=versionNumber           
+        o['_valid_from'] = valid_from_date
 
         insertedDocument = self.collection.insert_one(o)        
 
@@ -69,10 +70,15 @@ class InterscityCollection:
             raise ArgumentError('RefDate argument is not a datetime.')
 
 
+        #Determining new version number based on versions registers
+
         previous_version = self.collection_versions.find({'version_valid_from' : {'$lte' : refDate}}).sort('version_valid_from',-1)        
         previous_version = next(previous_version, None)
 
         next_version = self.collection_versions.find({'version_valid_from' : {'$gte' : refDate}}).sort('version_valid_from')        
+
+        #If there are no versions starting from dates greater than the refDate, the new version number is just one increment after the last version before the refDate
+        #In the other hand, if there are, this new version must be registered with a number before the previous version and the next version
         
         if(next_version.count() > 0):
             next_version = next(next_version,None)
@@ -82,11 +88,44 @@ class InterscityCollection:
             self.current_version = self.current_version + 1 #this is the newest version now
             new_version_number = self.current_version
             
+        ##Processed registers with version number greater than the new one should be deleted, as long as the new version is greater
+        ##than the original version of the register. In this case, the '_last_processed_version' in the original record must be downgraded to last one before the new one.
 
-        ##Preciso invalidar tuplas processadas de versoes superiores a nova (no caso de incluir uma intermediaria), dado que podem incorrer em alterações na cadeia. 
-        ##Por causa disso, adicionar mudancas historicas depois do insert sempre deve acarretar em perda de performance? (checar em testes)
-        res = self.collection_processed.remove({'version_number': {'$gte': new_version_number}})
-        res = self.collection.update({'_last_processed_version': {'$gte':new_version_number}}, {'$set':{'_last_processed_version':previous_version['version_number']}})
+        ##On the other hand, processed records with version number lower than the new one should be deleted, as long as the new version is lower tahn the original one. 
+        ##In this case, the '_first_processed_version' in the original record must be upgraded to the first one after the original one.
+        
+        res = self.collection_processed.delete_many({'$or': [
+                                                        {'$and': [ {'_original_version': {'$lte': new_version_number}},
+                                                          {'version_number': {'$gte': new_version_number}}
+                                                                 ]
+                                                        }
+                                                    , {'$and': [ {'_original_version': {'$gte': new_version_number}},
+                                                          {'version_number': {'$lte': new_version_number}}
+                                                                 ]
+                                                      }
+                                                    ]})
+
+        res = self.collection.update({'$and': [ {'_original_version': {'$lte': new_version_number}},
+                                                {'version_number': {'$gte': new_version_number}}
+                                              ]
+                                     },                                      
+                                     {'$set':{'_last_processed_version':previous_version['version_number']}})
+
+        if (next_version != None):
+            res = self.collection.update({'$and': [ {'_original_version': {'$gte': new_version_number}},
+                                            {'version_number': {'$lte': new_version_number}}
+                                            ]
+                                    },                                      
+                                    {'$set':{'_first_processed_version':next_version['version_number']}})
+
+
+        ##Testar aqui
+        self.collection.update_many({'$and' : [{'_original_version' : previous_version['version_number']},
+                                               {'_valid_from' : {'$gte' : refDate}}
+                                              ]}, {'$set' : {'_original_version' : new_version}} )
+
+
+        
 
 
         new_version = {
@@ -368,7 +407,16 @@ myCollection = InterscityCollection('interscity', 'collectionTest')
 myCollection.insert_one('{"pais": "Brasil", "cidade":"Vila Rica"}', datetime(2001,1,1))
 myCollection.insert_one('{"pais": "Brasil", "cidade":"Cuiabá"}', datetime(2002,1,1))
 myCollection.insert_one('{"pais": "Brasil", "cidade":"Rio de Janeiro"}',datetime(2003,1,1))
-myCollection.execute_translation("cidade","Vila Rica","Ouro Preto", datetime(2002,6,1))        
+
+testeQuery = myCollection.query({'pais' : 'Brasil'})
+myCollection.pretty_print(testeQuery)
+
+myCollection.execute_translation("cidade","Vila Rica","Ouro Preto", datetime(2002,6,1))  ##QUando eu faco isso, preciso considerar que o registro do Rio de Janeiro deve estar em outra versao a partir de agora
+
+
+testeQuery = myCollection.query({'pais' : 'Brasil'})
+myCollection.pretty_print(testeQuery)
+
 myCollection.insert_one('{"pais": "Brasil", "cidade":"São Paulo"}', datetime(2004,1,1))
 myCollection.execute_translation("cidade","Outra Cidade","São Petesburgo", datetime(2000,6,1))       
 testeQuery = myCollection.query({'pais' : 'Brasil'})
