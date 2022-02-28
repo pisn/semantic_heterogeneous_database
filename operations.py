@@ -9,6 +9,7 @@ import json
 class InterscityCollection:
     def __init__(self, databaseName, collectionName) -> None:
         self.client = MongoClient(host='localhost')
+        self.database_name = databaseName
         self.db = self.client[databaseName]
         self.collection = self.db[collectionName]
         self.collection_processed = self.db[collectionName+'_processed']
@@ -119,13 +120,27 @@ class InterscityCollection:
                                     {'$set':{'_first_processed_version':next_version['version_number']}})
 
 
-        ##Testar aqui
-        self.collection.update_many({'$and' : [{'_original_version' : previous_version['version_number']},
+        ##Older register can fall up to new created versions based on valid_from date. Therefore, lets reset all processed versions of these registers
+        ##and update its original version
+
+        res = self.collection.find({'$and' : [{'_original_version' : previous_version['version_number']},
                                                {'_valid_from' : {'$gte' : refDate}}
-                                              ]}, {'$set' : {'_original_version' : new_version}} )
+                                              ]})
 
+        for register in res:
+            self.collection_processed.delete_many({'$and' : [{'_original_id':register['_id']},
+                                                             {'_version_number': {'$ne':register['_original_version']}}
+                                                            ]})
 
-        
+            self.collection_processed.update_one({'$and' : [{'_original_id':register['_id']},
+                                                            {'_version_number':register['_original_version']}
+                                                           ]},                                
+                                                 {'$set': {'_original_version': new_version_number,
+                                                           '_version_number': new_version_number}})
+
+            self.collection.update_one({'_id': register['_id']}, {'$set' : {'_original_version' : new_version_number, 
+                                                             '_first_processed_version': new_version_number,
+                                                             '_last_processed_version': new_version_number}}) 
 
 
         new_version = {
@@ -397,8 +412,8 @@ class InterscityCollection:
                     print('|' + record[field] + ' '*(fieldLengths[field] - len(record[field])), end='')
             print('|')
         
-        
-          
+    def drop_database(self):
+        self.client.drop_database(self.database_name)      
 
      
         
@@ -409,15 +424,21 @@ myCollection.insert_one('{"pais": "Brasil", "cidade":"Cuiabá"}', datetime(2002,
 myCollection.insert_one('{"pais": "Brasil", "cidade":"Rio de Janeiro"}',datetime(2003,1,1))
 
 testeQuery = myCollection.query({'pais' : 'Brasil'})
-myCollection.pretty_print(testeQuery)
+
 
 myCollection.execute_translation("cidade","Vila Rica","Ouro Preto", datetime(2002,6,1))  ##QUando eu faco isso, preciso considerar que o registro do Rio de Janeiro deve estar em outra versao a partir de agora
 
-
 testeQuery = myCollection.query({'pais' : 'Brasil'})
-myCollection.pretty_print(testeQuery)
+
 
 myCollection.insert_one('{"pais": "Brasil", "cidade":"São Paulo"}', datetime(2004,1,1))
-myCollection.execute_translation("cidade","Outra Cidade","São Petesburgo", datetime(2000,6,1))       
+myCollection.execute_translation("cidade","Leningrado","São Petesburgo", datetime(2000,6,1))       
+
+myCollection.insert_one('{"pais": "Brasil", "cidade":"Leningrado"}', datetime(1980,1,1))
+
 testeQuery = myCollection.query({'pais' : 'Brasil'})
+
+
 myCollection.pretty_print(testeQuery)
+
+myCollection.drop_database()
