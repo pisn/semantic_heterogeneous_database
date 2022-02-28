@@ -5,6 +5,7 @@ from bson.objectid import ObjectId
 from pymongo import MongoClient, ASCENDING,DESCENDING
 from datetime import datetime
 import json
+import csv
 
 class InterscityCollection:
     def __init__(self, databaseName, collectionName) -> None:
@@ -414,3 +415,14 @@ class InterscityCollection:
         
     def drop_database(self):
         self.client.drop_database(self.database_name)
+
+    def import_csv(self, filePath, valid_from_field, valid_from_date_format='%Y-%m-%d', **fmtParameters):
+        with open(filePath, 'r') as csvFile:
+            reader = csv.DictReader(csvFile, **fmtParameters)
+            for row in reader:
+                version_from_date = datetime.strptime(row[valid_from_field], valid_from_date_format)
+                row.pop(valid_from_field)
+                self.insert_one(json.dumps(row), version_from_date)
+
+                    
+
