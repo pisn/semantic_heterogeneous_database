@@ -416,15 +416,7 @@ class InterscityCollection:
     def drop_database(self):
         self.client.drop_database(self.database_name)
 
-    def import_csv(self, filePath, valid_from_field, valid_from_date_format='%Y-%m-%d', delimiter=','):
-        # Pessima ideia, iterativo demais
-        # with open(filePath, 'r') as csvFile:
-        #     reader = csv.DictReader(csvFile, **fmtParameters)
-        #     for row in reader:
-        #         version_from_date = datetime.strptime(row[valid_from_field], valid_from_date_format)
-        #         row.pop(valid_from_field)
-        #         self.insert_one(json.dumps(row), version_from_date)
-
+    def insert_many_by_csv(self, filePath, valid_from_field, valid_from_date_format='%Y-%m-%d', delimiter=','):
         df = pd.read_csv(filePath, delimiter=delimiter)
 
         chunks = df.groupby([valid_from_field])
@@ -458,7 +450,7 @@ class InterscityCollection:
         for field in group.columns:
             if not field.startswith('_'):
                 column_register = self.collection_columns.find_one({'field_name': field})
-                                
+
                 if(column_register == None):
                     self.collection_columns.insert_one({'field_name':field, 'first_edit_version' : version_number ,'last_edit_version': version_number})           
 
