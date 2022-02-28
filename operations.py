@@ -6,6 +6,7 @@ from pymongo import MongoClient, ASCENDING,DESCENDING
 from datetime import datetime
 import json
 import csv
+import pandas as pd
 
 class InterscityCollection:
     def __init__(self, databaseName, collectionName) -> None:
@@ -38,7 +39,7 @@ class InterscityCollection:
     def insert_one(self, jsonString, valid_from_date:datetime):
         versions = self.collection_versions.find({'version_valid_from':{'$lte' : valid_from_date}}).sort('version_valid_from',DESCENDING)
         version = next(versions, None)
-
+        
         self.insert_one_by_version(jsonString, version['version_number'], valid_from_date)
 
     def insert_one_by_version(self, jsonString, versionNumber, valid_from_date:datetime):
@@ -63,9 +64,8 @@ class InterscityCollection:
                 updateResult = self.collection_columns.update_one({'field_name': field}, {'$set' : {'field_name' : field}, '$push' : {'documents' : insertedDocument.inserted_id}}, upsert=True)
                 
                 if(updateResult.upserted_id != None):
-                    self.collection_columns.update_one({'_id':updateResult.upserted_id},{'$set' : {'first_edit_version' : versionNumber ,'last_edit_version': versionNumber}})
+                    self.collection_columns.update_one({'_id':updateResult.upserted_id},{'$set' : {'first_edit_version' : versionNumber ,'last_edit_version': versionNumber}})   
     
-    #def insert_one_by_refdate(self, jsonString, refdate):
 
     def execute_translation(self, fieldName, oldValue, newValue, refDate : datetime): 
         if not isinstance(refDate,datetime):
@@ -130,11 +130,11 @@ class InterscityCollection:
 
         for register in res:
             self.collection_processed.delete_many({'$and' : [{'_original_id':register['_id']},
-                                                             {'_version_number': {'$ne':register['_original_version']}}
+                                                             {'_evoluted': True}
                                                             ]})
 
             self.collection_processed.update_one({'$and' : [{'_original_id':register['_id']},
-                                                            {'_version_number':register['_original_version']}
+                                                            {'_evoluted':False}
                                                            ]},                                
                                                  {'$set': {'_original_version': new_version_number,
                                                            '_version_number': new_version_number}})
@@ -416,13 +416,51 @@ class InterscityCollection:
     def drop_database(self):
         self.client.drop_database(self.database_name)
 
-    def import_csv(self, filePath, valid_from_field, valid_from_date_format='%Y-%m-%d', **fmtParameters):
-        with open(filePath, 'r') as csvFile:
-            reader = csv.DictReader(csvFile, **fmtParameters)
-            for row in reader:
-                version_from_date = datetime.strptime(row[valid_from_field], valid_from_date_format)
-                row.pop(valid_from_field)
-                self.insert_one(json.dumps(row), version_from_date)
+    def import_csv(self, filePath, valid_from_field, valid_from_date_format='%Y-%m-%d', delimiter=','):
+        # Pessima ideia, iterativo demais
+        # with open(filePath, 'r') as csvFile:
+        #     reader = csv.DictReader(csvFile, **fmtParameters)
+        #     for row in reader:
+        #         version_from_date = datetime.strptime(row[valid_from_field], valid_from_date_format)
+        #         row.pop(valid_from_field)
+        #         self.insert_one(json.dumps(row), version_from_date)
+
+        df = pd.read_csv(filePath, delimiter=delimiter)
+
+        chunks = df.groupby([valid_from_field])
+
+        for version_valid_from, group in chunks:
+            version_valid_from = datetime.strptime(version_valid_from, valid_from_date_format)
+            versions = self.collection_versions.find({'version_valid_from':{'$lte' : version_valid_from}}).sort('version_valid_from',DESCENDING)
+            version = next(versions, None)
+
+            self.insert_many_by_version(group.drop(valid_from_field, 1), version['version_number'], version_valid_from)        
+
+    
+    def insert_many_by_version(self, group: pd.DataFrame, version_number:int, valid_from_date: datetime):       
+        processed_group = group.copy()
+       
+        group['_first_processed_version'] = version_number
+        group['_last_processed_version']=version_number
+        group['_original_version']=version_number           
+        group['_valid_from'] = valid_from_date       
+
+        insertedDocuments = self.collection.insert_many(group.to_dict('records'))       
+
+        processed_group.insert(len(processed_group.columns),'_original_id', insertedDocuments.inserted_ids) 
+
+        processed_group['_version_number'] = version_number        
+        processed_group['_original_version'] = version_number
+        processed_group['_evoluted'] = False                     
+        
+        self.collection_processed.insert_many(processed_group.to_dict('records'))
+
+        for field in group.columns:
+            if not field.startswith('_'):
+                column_register = self.collection_columns.find_one({'field_name': field})
+                                
+                if(column_register == None):
+                    self.collection_columns.insert_one({'field_name':field, 'first_edit_version' : version_number ,'last_edit_version': version_number})           
 
                     
 
