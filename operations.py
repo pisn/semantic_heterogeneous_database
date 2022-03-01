@@ -75,7 +75,7 @@ class InterscityCollection:
 
         #Determining new version number based on versions registers
 
-        previous_version = self.collection_versions.find({'version_valid_from' : {'$lte' : refDate}}).sort('version_valid_from',-1)        
+        previous_version = self.collection_versions.find({'version_valid_from' : {'$lt' : refDate}}).sort('version_valid_from',-1)        
         previous_version = next(previous_version, None)
 
         next_version = self.collection_versions.find({'version_valid_from' : {'$gte' : refDate}}).sort('version_valid_from')        
