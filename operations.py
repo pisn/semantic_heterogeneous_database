@@ -55,6 +55,7 @@ class InterscityCollection:
         p['_version_number'] = versionNumber
         p['_original_id'] = insertedDocument.inserted_id
         p['_original_version'] = versionNumber
+        p['_valid_from'] = valid_from_date
         p['_evoluted'] = False
 
         self.collection_processed.insert_one(p)
@@ -124,24 +125,25 @@ class InterscityCollection:
         ##Older register can fall up to new created versions based on valid_from date. Therefore, lets reset all processed versions of these registers
         ##and update its original version
 
-        res = self.collection.find({'$and' : [{'_original_version' : previous_version['version_number']},
+        res = self.collection.update_many({'$and' : [{'_original_version' : previous_version['version_number']},
                                                {'_valid_from' : {'$gte' : refDate}}
-                                              ]})
+                                              ]},
+                                            {'$set' : {'_original_version' : new_version_number, 
+                                                            '_first_processed_version': new_version_number,
+                                                            '_last_processed_version': new_version_number}})
 
-        for register in res:
-            self.collection_processed.delete_many({'$and' : [{'_original_id':register['_id']},
-                                                             {'_evoluted': True}
-                                                            ]})
+        
+        self.collection_processed.delete_many({'$and' : [{'_original_version' : previous_version['version_number']},                                                        
+                                                            {'_valid_from' : {'$gte' : refDate}},
+                                                            {'_evoluted': True}
+                                                        ]})
 
-            self.collection_processed.update_one({'$and' : [{'_original_id':register['_id']},
-                                                            {'_evoluted':False}
-                                                           ]},                                
-                                                 {'$set': {'_original_version': new_version_number,
-                                                           '_version_number': new_version_number}})
-
-            self.collection.update_one({'_id': register['_id']}, {'$set' : {'_original_version' : new_version_number, 
-                                                             '_first_processed_version': new_version_number,
-                                                             '_last_processed_version': new_version_number}}) 
+        self.collection_processed.update_many({'$and' : [{'_original_version' : previous_version['version_number']},                                                        
+                                                        {'_valid_from' : {'$gte' : refDate}},
+                                                        {'_evoluted':False}
+                                                        ]},                                
+                                             {'$set': {'_original_version': new_version_number,
+                                                        '_version_number': new_version_number}})
 
 
         new_version = {
@@ -321,9 +323,11 @@ class InterscityCollection:
         to_translate_down = self.collection.find({'_first_processed_version' : {'$gt' : version_number}})
 
         for record in to_translate_up:
+            print('Translating up')
             self.evolute(record, version_number)
         
         for record in to_translate_down:
+            print('Translating down')
             self.evolute(record, version_number)
 
         query['_version_number'] = version_number ##Retornando registros traduzidos. 
@@ -443,6 +447,7 @@ class InterscityCollection:
 
         processed_group['_version_number'] = version_number        
         processed_group['_original_version'] = version_number
+        processed_group['_valid_from'] = valid_from_date
         processed_group['_evoluted'] = False                     
         
         self.collection_processed.insert_many(processed_group.to_dict('records'))
@@ -453,6 +458,13 @@ class InterscityCollection:
 
                 if(column_register == None):
                     self.collection_columns.insert_one({'field_name':field, 'first_edit_version' : version_number ,'last_edit_version': version_number})           
+
+    def execute_translations_by_csv(self, filePath):
+        with open(filePath, 'r') as csvFile:
+            reader = csv.DictReader(csvFile)
+
+            for row in reader:
+                self.execute_translation(row['field'], row['from'], row['to'], datetime.strptime(row['RefDate'], '%Y-%m-%d'))
 
                     
 
