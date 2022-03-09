@@ -43,16 +43,17 @@ class InterscityCollection:
         self.insert_one_by_version(jsonString, version['version_number'], valid_from_date)
 
     def insert_one_by_version(self, jsonString, versionNumber, valid_from_date:datetime):
-        o = json.loads(jsonString)        
-        o['_first_processed_version'] = versionNumber
-        o['_last_processed_version']=versionNumber
+        o = json.loads(jsonString)                
         o['_original_version']=versionNumber           
-        o['_valid_from'] = valid_from_date
+        o['_first_processed_version'] = valid_from_date
+        o['_last_processed_version'] = valid_from_date
+        o['_valid_from'] = valid_from_date        
 
         insertedDocument = self.collection.insert_one(o)        
 
         p = json.loads(jsonString)
-        p['_version_number'] = versionNumber
+        p['_min_version_number'] = versionNumber
+        p['_max_version_number'] = versionNumber
         p['_original_id'] = insertedDocument.inserted_id
         p['_original_version'] = versionNumber
         p['_valid_from'] = valid_from_date
@@ -91,60 +92,68 @@ class InterscityCollection:
             self.current_version = self.current_version + 1 #this is the newest version now
             new_version_number = self.current_version
             
-        ##Processed registers with version number greater than the new one should be deleted, as long as the new version is greater
-        ##than the original version of the register. In this case, the '_last_processed_version' in the original record must be downgraded to last one before the new one.
+            
+        ##For processed records unaffected by the translation, ending in the previous version, version interval should be extended to include the new version,        
 
-        ##On the other hand, processed records with version number lower than the new one should be deleted, as long as the new version is lower tahn the original one. 
-        ##In this case, the '_first_processed_version' in the original record must be upgraded to the first one after the original one.
+        res = self.collection_processed.update_many({'$and' : [{'_max_version_number' : previous_version['version_number']},
+                                                               {fieldName : {'$ne' : oldValue}}
+                                                              ]}, {'_max_version_number' : new_version_number})
         
-        res = self.collection_processed.delete_many({'$or': [
-                                                        {'$and': [ {'_original_version': {'$lte': new_version_number}},
-                                                          {'version_number': {'$gte': new_version_number}}
-                                                                 ]
-                                                        }
-                                                    , {'$and': [ {'_original_version': {'$gte': new_version_number}},
-                                                          {'version_number': {'$lte': new_version_number}}
-                                                                 ]
-                                                      }
-                                                    ]})
-
-        res = self.collection.update({'$and': [ {'_original_version': {'$lte': new_version_number}},
-                                                {'version_number': {'$gte': new_version_number}}
-                                              ]
-                                     },                                      
-                                     {'$set':{'_last_processed_version':previous_version['version_number']}})
-
-        if (next_version != None):
-            res = self.collection.update({'$and': [ {'_original_version': {'$gte': new_version_number}},
-                                            {'version_number': {'$lte': new_version_number}}
-                                            ]
-                                    },                                      
-                                    {'$set':{'_first_processed_version':next_version['version_number']}})
-
-
-        ##Older register can fall up to new created versions based on valid_from date. Therefore, lets reset all processed versions of these registers
-        ##and update its original version
-
-        res = self.collection.update_many({'$and' : [{'_original_version' : previous_version['version_number']},
-                                               {'_valid_from' : {'$gte' : refDate}}
-                                              ]},
-                                            {'$set' : {'_original_version' : new_version_number, 
-                                                            '_first_processed_version': new_version_number,
-                                                            '_last_processed_version': new_version_number}})
-
         
-        self.collection_processed.delete_many({'$and' : [{'_original_version' : previous_version['version_number']},                                                        
-                                                            {'_valid_from' : {'$gte' : refDate}},
-                                                            {'_evoluted': True}
-                                                        ]})
+        ##Spliting processed registers affected by the translation where the new version is within the min and max version number
+        if(next_version != None):
+            res = self.collection_processed.update_many({'$and' : [{'_min_version_number' : next_version['version_number']},
+                                                                   {'$or' : [{fieldName : oldValue},
+                                                                              {fieldName : newValue}
+                                                                             ]
+                                                                   }
+                                                              ]}, {'_min_version_number' : new_version_number})                                                              
 
-        self.collection_processed.update_many({'$and' : [{'_original_version' : previous_version['version_number']},                                                        
-                                                        {'_valid_from' : {'$gte' : refDate}},
-                                                        {'_evoluted':False}
-                                                        ]},                                
-                                             {'$set': {'_original_version': new_version_number,
-                                                        '_version_number': new_version_number}})
+            res = self.collection_processed.find({'$and': [
+                                                                    {'_min_version_number' : {'$lte' : previous_version['version_number']}},
+                                                                    {'_max_version_number' : {'$gte' : next_version['version_number']}},
+                                                                    {'$or' : [{fieldName : oldValue},
+                                                                              {fieldName : newValue}
+                                                                             ]
+                                                                    } 
+                                                          ]
+                                                 }
+                                                )
+            
+            #Copying all records in this situation
+            res = self.collection_processed.aggregate([{ '$match': {'$and': [
+                                                                            {'_min_version_number' : {'$lte' : previous_version['version_number']}},
+                                                                            {'_max_version_number' : {'$gte' : next_version['version_number']}},
+                                                                            {'$or' : [{fieldName : oldValue},
+                                                                                    {fieldName : newValue}
+                                                                                    ]
+                                                                            } 
+                                                                        ]
+                                                              } 
+                                                  }, 
+                                                  { '$out' : "to_split" } ])
 
+            ##part 1 of split - old registers is cut until last version before translation          
+            res = self.collection_processed.update_many({'$and': [
+                                                                    {'_min_version_number' : {'$lte' : previous_version['version_number']}},
+                                                                    {'_max_version_number' : {'$gte' : next_version['version_number']}},
+                                                                    {'$or' : [{fieldName : oldValue},
+                                                                              {fieldName : newValue}
+                                                                             ]
+                                                                    } 
+                                                          ]
+                                                        },
+                                                        {'$set' : {'_max_version_number' : previous_version['version_number']}}
+                                                       )
+            
+            ##part 2 of split - inserting registers starting from new version. Therefore, in the end of the process, records
+            #have been splitted in two parts. 
+            res = self.db['to_split'].update_many({},
+                                                  {'$set' : {'_min_version_number' : new_version_number}}
+                                                 )
+
+            res = self.db['to_split'].aggregate([{'$match' : {}}, {'$merge': {'into' : self.collection_processed.name, 'whenMatched' : 'fail'}}])          
+        
 
         new_version = {
             "current_version": 1 if next_version == None else 0,
@@ -187,7 +196,24 @@ class InterscityCollection:
         elif column['first_edit_version'] < new_version_number:
             self.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'first_edit_version' : new_version_number}})        
 
-        self.collection_versions.insert_one(new_version)               
+        self.collection_versions.insert_one(new_version)    
+
+
+        ##Update value of processed versions
+
+        res = self.collection_versions.find({'$and': [{'next_operation.field' : fieldName},
+                                                      {'next_operation.type' : 'translation'}                                                      
+                                                     ]}).sort('version_valid_from',ASCENDING)
+
+        for version_change in res:
+            res = self.collection_processed.update_many({'$and':[{'_min_version_number':{'$gte' : version_change['next_version']}},
+                                                                 {'_valid_from' : {'$lte': version_change['version_valid_from']}},
+                                                                 {version_change['next_operation.field'] : version_change['next_operation.from']}
+                                                                ]
+                                                        })   
+
+        ##Pre-existing records have already been processed in the new version. We can update this in the original records collection. 
+                
 
                 
     def evolute(self, rawDocument, targetVersion):
@@ -445,7 +471,8 @@ class InterscityCollection:
 
         processed_group.insert(len(processed_group.columns),'_original_id', insertedDocuments.inserted_ids) 
 
-        processed_group['_version_number'] = version_number        
+        processed_group['_min_version_number'] = version_number        
+        processed_group['_max_version_number'] = version_number        
         processed_group['_original_version'] = version_number
         processed_group['_valid_from'] = valid_from_date
         processed_group['_evoluted'] = False                     
