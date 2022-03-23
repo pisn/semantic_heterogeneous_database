@@ -45,8 +45,8 @@ class InterscityCollection:
     def insert_one_by_version(self, jsonString, versionNumber, valid_from_date:datetime):
         o = json.loads(jsonString)                
         o['_original_version']=versionNumber           
-        o['_first_processed_version'] = valid_from_date
-        o['_last_processed_version'] = valid_from_date
+        o['_first_processed_version'] = versionNumber
+        o['_last_processed_version'] = versionNumber
         o['_valid_from'] = valid_from_date        
 
         insertedDocument = self.collection.insert_one(o)        
@@ -97,7 +97,7 @@ class InterscityCollection:
 
         res = self.collection_processed.update_many({'$and' : [{'_max_version_number' : previous_version['version_number']},
                                                                {fieldName : {'$ne' : oldValue}}
-                                                              ]}, {'_max_version_number' : new_version_number})
+                                                              ]}, {'$set' : {'_max_version_number' : new_version_number}})
         
         
         ##Spliting processed registers affected by the translation where the new version is within the min and max version number
@@ -107,18 +107,8 @@ class InterscityCollection:
                                                                               {fieldName : newValue}
                                                                              ]
                                                                    }
-                                                              ]}, {'_min_version_number' : new_version_number})                                                              
-
-            res = self.collection_processed.find({'$and': [
-                                                                    {'_min_version_number' : {'$lte' : previous_version['version_number']}},
-                                                                    {'_max_version_number' : {'$gte' : next_version['version_number']}},
-                                                                    {'$or' : [{fieldName : oldValue},
-                                                                              {fieldName : newValue}
-                                                                             ]
-                                                                    } 
-                                                          ]
-                                                 }
-                                                )
+                                                              ]}, {'$set' :{'_min_version_number' : new_version_number}})                                                              
+      
             
             #Copying all records in this situation
             res = self.collection_processed.aggregate([{ '$match': {'$and': [
@@ -153,17 +143,37 @@ class InterscityCollection:
                                                  )
 
             res = self.db['to_split'].aggregate([{'$match' : {}}, {'$merge': {'into' : self.collection_processed.name, 'whenMatched' : 'fail'}}])          
+            self.db['to_split'].drop()
         
+        else: #New version is terminal, no need to split, but need to create another node
+            #copying records
+            res = self.collection_processed.aggregate([{ '$match': {'$and': [
+                                                                            {'_max_version_number' : previous_version['version_number']},                                                                            
+                                                                            {fieldName : oldValue}                                                                                                                                                                                                                                                   
+                                                                            ]
+                                                                   } 
+                                                        },
+                                                        {'$set' : {'_id' : ObjectId()}},
+                                                      { '$out' : "to_split" } ])
+            #updating version 
+            res = self.db['to_split'].update_many({},
+                                                  {'$set' : {'_min_version_number' : new_version_number, '_max_version_number' : new_version_number}}
+                                                 )
+
+            res = self.db['to_split'].aggregate([{'$match' : {}}, {'$merge': {'into' : self.collection_processed.name, 'whenMatched' : 'fail'}}])          
+            self.db['to_split'].drop()
+
 
         new_version = {
             "current_version": 1 if next_version == None else 0,
             "version_valid_from":refDate,
             "previous_version":previous_version['version_number'],
+            "previous_version_valid_from": previous_version['version_valid_from'],
             "previous_operation": {
                 "type": "translation",
                 "field":fieldName,
                 "from":newValue,
-                "to":oldValue
+                "to":oldValue                
             },
             "next_version":None,
             "next_operation":None,
@@ -177,13 +187,14 @@ class InterscityCollection:
             "to":newValue
         }
 
-        res = self.collection_versions.update_one({'version_number': previous_version['version_number']}, {'$set' : {'next_operation': next_operation, 'next_version':new_version_number}})
+        res = self.collection_versions.update_one({'version_number': previous_version['version_number']}, {'$set' : {'next_operation': next_operation, 'next_version':new_version_number, 'next_version_valid_from' : refDate}})
         
         if(res.matched_count != 1):
             print("Previous version not matched")
 
         if(next_version != None):
             new_version['next_version'] = next_version['version_number']
+            new_version['next_version_valid_from'] = next_version['version_valid_from']
             new_version['next_operation'] = previous_version['next_operation']            
 
             res = self.collection_versions.update_one({'version_number': next_version['version_number']},{'$set':{'previous_version':new_version_number}})        
@@ -203,16 +214,41 @@ class InterscityCollection:
 
         res = self.collection_versions.find({'$and': [{'next_operation.field' : fieldName},
                                                       {'next_operation.type' : 'translation'}                                                      
-                                                     ]}).sort('version_valid_from',ASCENDING)
+                                                     ]}).sort('next_version_valid_from',ASCENDING)
 
         for version_change in res:
             res = self.collection_processed.update_many({'$and':[{'_min_version_number':{'$gte' : version_change['next_version']}},
-                                                                 {'_valid_from' : {'$lte': version_change['version_valid_from']}},
-                                                                 {version_change['next_operation.field'] : version_change['next_operation.from']}
+                                                                 {'_valid_from' : {'$lte': version_change['next_version_valid_from']}},
+                                                                 {version_change['next_operation']['field'] : version_change['next_operation']['from']},                                                                 
                                                                 ]
-                                                        })   
+                                                        }, 
+                                                        {'$set': {version_change['next_operation']['field']: version_change['next_operation']['to'], '_evoluted' : True}})   
+
+
+        res = self.collection_versions.find({'$and': [{'previous_operation.field' : fieldName},
+                                                      {'previous_operation.type' : 'translation'}                                                      
+                                                     ]}).sort('previous_version_valid_from',DESCENDING)
+
+        for version_change in res:
+            res = self.collection_processed.update_many({'$and':[{'_min_version_number':{'$gte' : version_change['previous_version']}},
+                                                                 {'_valid_from' : {'$lte': version_change['previous_version_valid_from']}},
+                                                                 {version_change['previous_operation']['field'] : version_change['previous_operation']['to']}                                                                 
+                                                                ]
+                                                        }, 
+                                                        {'$set' :{version_change['previous_operation']['field']: version_change['previous_operation']['from']}})   
 
         ##Pre-existing records have already been processed in the new version. We can update this in the original records collection. 
+
+        self.collection.update_many({'$and': [{'_last_processed_version': previous_version['version_number']}
+                                             ]                                     
+                                    },
+                                    {'$set' :{'_last_processed_version' : new_version_number}})
+
+        if(next_version != None):
+            self.collection.update_many({'$and': [{'_first_processed_version': next_version['version_number']}
+                                                ]                                     
+                                        },
+                                        {'$set':{'_first_processed_version' : new_version_number}})
                 
 
                 
