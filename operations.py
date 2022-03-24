@@ -121,6 +121,7 @@ class InterscityCollection:
                                                                         ]
                                                               } 
                                                   }, 
+                                                  {'$set' : {'_id' : ObjectId()}},
                                                   { '$out' : "to_split" } ])
 
             ##part 1 of split - old registers is cut until last version before translation          
@@ -223,19 +224,7 @@ class InterscityCollection:
                                                                 ]
                                                         }, 
                                                         {'$set': {version_change['next_operation']['field']: version_change['next_operation']['to'], '_evoluted' : True}})   
-
-
-        res = self.collection_versions.find({'$and': [{'previous_operation.field' : fieldName},
-                                                      {'previous_operation.type' : 'translation'}                                                      
-                                                     ]}).sort('previous_version_valid_from',DESCENDING)
-
-        for version_change in res:
-            res = self.collection_processed.update_many({'$and':[{'_min_version_number':{'$gte' : version_change['previous_version']}},
-                                                                 {'_valid_from' : {'$lte': version_change['previous_version_valid_from']}},
-                                                                 {version_change['previous_operation']['field'] : version_change['previous_operation']['to']}                                                                 
-                                                                ]
-                                                        }, 
-                                                        {'$set' :{version_change['previous_operation']['field']: version_change['previous_operation']['from']}})   
+        
 
         ##Pre-existing records have already been processed in the new version. We can update this in the original records collection. 
 
@@ -392,7 +381,8 @@ class InterscityCollection:
             print('Translating down')
             self.evolute(record, version_number)
 
-        query['_version_number'] = version_number ##Retornando registros traduzidos. 
+        query['_min_version_number'] = {'$lte' : version_number} ##Retornando registros traduzidos. 
+        query['_max_version_number'] = {'$gte' : version_number} ##Retornando registros traduzidos. 
         return self.collection_processed.find(query)
 
     ##Before executing the query itself, lets translate all possible past terms from the query to current terms. 

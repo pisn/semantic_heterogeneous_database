@@ -12,6 +12,8 @@ myCollection.insert_one('{"pais": "Brasil", "cidade":"Rio de Janeiro"}',datetime
 # myCollection.pretty_print(testeQuery)
 
 myCollection.execute_translation("cidade","Vila Rica","Ouro Preto", datetime(2002,6,1))  ##QUando eu faco isso, preciso considerar que o registro do Rio de Janeiro deve estar em outra versao a partir de agora
+myCollection.execute_translation("cidade","Ouro Preto","Nova Ouro Preto", datetime(2004,6,1))  
+myCollection.execute_translation("cidade","Cuiabá","Nova Cuiabá", datetime(2003,6,1))  
 
 testeQuery = myCollection.query({'pais' : 'Brasil'})
 myCollection.pretty_print(testeQuery)
@@ -29,13 +31,13 @@ myCollection.pretty_print(testeQuery)
 # myCollection.drop_database()
 
 
-myCollection = operations.InterscityCollection('IBGE', 'estimativa_populacional')     
+# myCollection = operations.InterscityCollection('IBGE', 'estimativa_populacional')     
 
-startTime = time.time()
-myCollection.insert_many_by_csv(os.path.join(os.path.dirname(__file__),'IBGE_Population/Estimativa_Populacao.csv'), 'RefDate')
+# startTime = time.time()
+# myCollection.insert_many_by_csv(os.path.join(os.path.dirname(__file__),'IBGE_Population/Estimativa_Populacao.csv'), 'RefDate')
 
-executionTime = (time.time() - startTime)
-print('Execution time for insertion: ' + str(executionTime))
+# executionTime = (time.time() - startTime)
+# print('Execution time for insertion: ' + str(executionTime))
 
 # myCollection.execute_translations_by_csv(os.path.join(os.path.dirname(__file__), 'IBGE_NameChanges/IBGE_NameChanges.csv'))
 
