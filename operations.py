@@ -248,8 +248,7 @@ class InterscityCollection:
         if targetVersion > lastVersion:
             while lastVersion < targetVersion:                
                 
-                lastVersionDocument = self.collection_processed.find_one({'_original_id' : rawDocument['_id'], '_version_number': lastVersion})                
-                lastVersionDocument.pop('_id')
+                lastVersionDocument = self.collection_processed.find_one({'_original_id' : rawDocument['_id'], '_max_version_number': lastVersion})                                
 
                 versionRegister = self.collection_versions.find_one({'version_number' : lastVersion})
 
@@ -265,8 +264,16 @@ class InterscityCollection:
 
                     if(field in lastVersionDocument):
                         if lastVersionDocument[field] == oldValue:
+                            ##new row needed because register must change
                             lastVersionDocument[field] = newValue
                             lastVersionDocument['_evoluted'] = True
+                            lastVersionDocument['_min_version_number'] = versionRegister['next_version']
+                            lastVersionDocument['_max_version_number'] = versionRegister['next_version']
+                            lastVersionDocument.pop('_id')
+                            self.collection_processed.insert_one(lastVersionDocument)
+                        else:
+                            ##Just extend versions
+                            self.collection_processed.update_one({'_id':lastVersionDocument['_id']}, {'$set':{'_max_version_number':versionRegister['next_version']}})
                 else:
                     raise 'Unrecognized evolution type:' + evolutionOperation['type']        
                 
@@ -275,14 +282,11 @@ class InterscityCollection:
                 else: #Chegou a ultima versao disponivel, aumentar um ponto
                     lastVersion = self.current_version
                 
-                lastVersionDocument['_version_number'] = lastVersion                
-                rawDocument['_last_processed_version'] = lastVersion
-
-                self.collection_processed.insert_one(lastVersionDocument)
+                
+                rawDocument['_last_processed_version'] = lastVersion                
         else:
             while firstVersion > targetVersion:
-                firstVersionDocument = self.collection_processed.find_one({'_original_id' : rawDocument['_id'], '_version_number': firstVersion})                
-                firstVersionDocument.pop('_id')
+                firstVersionDocument = self.collection_processed.find_one({'_original_id' : rawDocument['_id'], '_version_number': firstVersion})                                
 
                 versionRegister = self.collection_versions.find_one({'version_number' : firstVersion})
 
@@ -300,14 +304,17 @@ class InterscityCollection:
                         if firstVersionDocument[field] == oldValue:
                             firstVersionDocument[field] = newValue
                             firstVersionDocument['_evoluted'] = True
+                            firstVersionDocument['_min_version_number'] = versionRegister['previous_version']
+                            firstVersionDocument['_max_version_number'] = versionRegister['previous_version']
+                            firstVersionDocument.pop('_id')
+                            self.collection_processed.insert_one(firstVersionDocument)
+                    else:
+                        self.collection_processed.update_one({'_id':firstVersionDocument['_id']}, {'$set':{'_min_version_number':versionRegister['previous_version']}})
                 else:
                     raise 'Unrecognized evolution type:' + evolutionOperation['type']        
                 
-                firstVersion = float(versionRegister['previous_version'])
-                firstVersionDocument['_version_number'] = firstVersion                
-                rawDocument['_first_processed_version'] = firstVersion
-
-                self.collection_processed.insert_one(firstVersionDocument)
+                firstVersion = float(versionRegister['previous_version'])                       
+                rawDocument['_first_processed_version'] = firstVersion                
 
         self.collection.update_one({'_id':rawDocument['_id']}, {'$set': {'_first_processed_version': rawDocument['_first_processed_version'], '_last_processed_version': rawDocument['_last_processed_version']}})
     
