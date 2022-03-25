@@ -70,6 +70,7 @@ class InterscityCollection:
     
 
     def execute_translation(self, fieldName, oldValue, newValue, refDate : datetime): 
+        print(f'Old: {oldValue} New:{newValue}')
         if not isinstance(refDate,datetime):
             raise ArgumentError('RefDate argument is not a datetime.')
 
@@ -96,7 +97,8 @@ class InterscityCollection:
         ##For processed records unaffected by the translation, ending in the previous version, version interval should be extended to include the new version,        
 
         res = self.collection_processed.update_many({'$and' : [{'_max_version_number' : previous_version['version_number']},
-                                                               {fieldName : {'$ne' : oldValue}}
+                                                               {fieldName : {'$ne' : oldValue}},
+                                                               {fieldName : {'$ne' : newValue}}
                                                               ]}, {'$set' : {'_max_version_number' : new_version_number}})
         
         
@@ -121,7 +123,7 @@ class InterscityCollection:
                                                                         ]
                                                               } 
                                                   }, 
-                                                  {'$set' : {'_id' : ObjectId()}},
+                                                  {'$unset': '_id'},
                                                   { '$out' : "to_split" } ])
 
             ##part 1 of split - old registers is cut until last version before translation          
@@ -150,11 +152,14 @@ class InterscityCollection:
             #copying records
             res = self.collection_processed.aggregate([{ '$match': {'$and': [
                                                                             {'_max_version_number' : previous_version['version_number']},                                                                            
-                                                                            {fieldName : oldValue}                                                                                                                                                                                                                                                   
+                                                                            {'$or' : [{fieldName : oldValue},                                                                                                                                                                                                                                                   
+                                                                                      {fieldName : newValue}
+                                                                                     ]
+                                                                            } 
                                                                             ]
                                                                    } 
                                                         },
-                                                        {'$set' : {'_id' : ObjectId()}},
+                                                        {'$unset': '_id'},
                                                       { '$out' : "to_split" } ])
             #updating version 
             res = self.db['to_split'].update_many({},
@@ -213,17 +218,29 @@ class InterscityCollection:
 
         ##Update value of processed versions
 
-        res = self.collection_versions.find({'$and': [{'next_operation.field' : fieldName},
+        versions = self.collection_versions.find({'$and': [{'next_operation.field' : fieldName},
                                                       {'next_operation.type' : 'translation'}                                                      
                                                      ]}).sort('next_version_valid_from',ASCENDING)
 
-        for version_change in res:
+        for version_change in versions:
             res = self.collection_processed.update_many({'$and':[{'_min_version_number':{'$gte' : version_change['next_version']}},
                                                                  {'_valid_from' : {'$lte': version_change['next_version_valid_from']}},
                                                                  {version_change['next_operation']['field'] : version_change['next_operation']['from']},                                                                 
                                                                 ]
                                                         }, 
                                                         {'$set': {version_change['next_operation']['field']: version_change['next_operation']['to'], '_evoluted' : True}})   
+
+        versions = self.collection_versions.find({'$and': [{'previous_operation.field' : fieldName},
+                                                      {'previous_operation.type' : 'translation'}                                                      
+                                                     ]}).sort('previous_version_valid_from',DESCENDING)
+
+        for version_change in versions:            
+            res = self.collection_processed.update_many({'$and':[{'_max_version_number':{'$lte' : version_change['previous_version']}},
+                                                                 {'_valid_from' : {'$gte': version_change['previous_version_valid_from']}},
+                                                                 {version_change['previous_operation']['field'] : version_change['previous_operation']['from']},                                                                 
+                                                                ]
+                                                        }, 
+                                                        {'$set': {version_change['previous_operation']['field']: version_change['previous_operation']['to'], '_evoluted' : True}})   
         
 
         ##Pre-existing records have already been processed in the new version. We can update this in the original records collection. 
@@ -458,8 +475,8 @@ class InterscityCollection:
                         if processedValue != originalValue:
                             record[field] = f'{processedValue} (originaly: {originalValue})'
 
-                    if(fieldLengths[field] < len(record[field])):
-                        fieldLengths[field] = len(record[field])
+                    if(fieldLengths[field] < len(str(record[field]))):
+                        fieldLengths[field] = len(str(record[field]))
 
         lineLength = 0
         for field in fieldLengths.keys():
@@ -473,7 +490,7 @@ class InterscityCollection:
         for record in records:            
             for field in record.keys():  #calculate number of spaces so as fields have the same length in all records
                 if not field.startswith('_'):
-                    print('|' + record[field] + ' '*(fieldLengths[field] - len(record[field])), end='')
+                    print('|' + str(record[field]) + ' '*(fieldLengths[field] - len(str(record[field]))), end='')
             print('|')
         
     def drop_database(self):
