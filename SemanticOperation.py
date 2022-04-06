@@ -1,5 +1,10 @@
 
-class SemanticOperation:
+import zope.interface
+
+class SemanticOperation(zope.interface.Interface):
+    def __init__(self, Collection):
+        pass
+
     def execute_operation(self, validFromDate:datetime, **args):
         """Execute the semantic operation, updating what needs to be updated and registering it in the operations catalog 
         
