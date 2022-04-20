@@ -1,4 +1,5 @@
-import operations
+import Collection
+import TranslationOperation
 from datetime import datetime
 import os
 import time

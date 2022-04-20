@@ -1,4 +1,6 @@
 import pandas as pd
+import SemanticOperation
+from argparse import ArgumentError
 from bson.objectid import ObjectId
 from pymongo import MongoClient, ASCENDING,DESCENDING
 from datetime import datetime
@@ -17,6 +19,7 @@ class Collection:
         self.collection_columns = self.db[CollectionName+'_columns']
         self.collection_versions = self.db[CollectionName + '_versions']
         self.current_version = self.collection_versions.find_one({"current_version":1})
+        self.semantic_operations = {}
         
         #initializing first version
         if(self.current_version == None):
@@ -35,7 +38,12 @@ class Collection:
         else:
             self.current_version = self.current_version['version_number']
 
-    
+    def register_operation(self, OperationKey, SemanticOperationClass):
+        if not SemanticOperation.implementedBy(SemanticOperationClass):
+            raise ArgumentError("SemanticOperationClass", "SemanticOperationClass provided does not implement SemanticOperation interface")
+
+        self.semantic_operations[OperationKey] = SemanticOperationClass
+
 
     def insert_one(self, JsonString, ValidFromDate:datetime):
         """ Insert one documet in the collection.
@@ -74,7 +82,7 @@ class Collection:
                 updateResult = self.collection_columns.update_one({'field_name': field}, {'$set' : {'field_name' : field}, '$push' : {'documents' : insertedDocument.inserted_id}}, upsert=True)
                 
                 if(updateResult.upserted_id != None):
-                    self.collection_columns.update_one({'_id':updateResult.upserted_id},{'$set' : {'first_edit_version' : versionNumber ,'last_edit_version': versionNumber}})   
+                    self.collection_columns.update_one({'_id':updateResult.upserted_id},{'$set' : {'first_edit_version' : VersionNumber ,'last_edit_version': VersionNumber}})   
 
     def insert_many_by_csv(self, FilePath, ValidFromField, ValidFromDateFormat='%Y-%m-%d', Delimiter=','):
         """ Insert many recorDs in the collection using a csv file. 
@@ -125,7 +133,9 @@ class Collection:
                 if(column_register == None):
                     self.collection_columns.insert_one({'field_name':field, 'first_edit_version' : VersionNumber ,'last_edit_version': VersionNumber})           
 
-    def find_many(self, queryString):
+    ##Before executing the query itself, lets translate all possible past terms from the query to current terms. 
+    ##We do translate registers, so we should also translate queries
+    def find_many(self, QueryString):
         """ Query the collection with the supplied queryString
 
         Args:
@@ -135,7 +145,117 @@ class Collection:
 
         """
 
-        pass
+        queryTerms = {}        
+
+        
+        for field in QueryString.keys():             
+            queryTerms[field] = set()
+            queryTerms[field].add(QueryString[field])
+
+            to_process = []
+            to_process.append(QueryString[field])
+
+            while len(to_process) > 0:
+                fieldValue = to_process.pop()
+                
+                versions = self.collection_versions.find({'next_operation.field':field,'next_operation.from':fieldValue})
+
+                if(versions.count() > 0):
+                    for version in versions:
+                        new_term = version['next_operation']['to']
+                        to_process.append(new_term)
+                else:
+                    queryTerms[field].add(fieldValue) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query
+
+                
+        
+        ands = []
+
+        for field in queryTerms.keys():
+            ors = []
+
+            for value in queryTerms[field]:
+                ors.append({field:value})
+
+            ands.append({'$or' : ors})
+
+        finalQuery = {'$and' : ands}                  
+        
+        return self.__query_specific(finalQuery)     
+
+    def __query_specific(self, Query, VersionNumber=None):
+        #Eu preciso depois permitir que seja o tempo da versao, nao o numero
+        #E tambem que dados possam ser inseridos com tempo anterior, e assumir a versao da época.
+
+        if(VersionNumber == None):
+            VersionNumber = self.current_version   
+
+        max_version_number = VersionNumber
+        min_version_number = VersionNumber
+        
+        ##obtaining version to be queried
+        
+        to_process = []
+        to_process.append(Query) 
+        
+        while len(to_process) > 0:
+            field = to_process.pop()
+
+            if isinstance(field, dict): 
+                if(len(field.keys()) > 1):
+                    for f in field.keys():
+                        to_process.append({field: field[f]})
+                    continue           
+                else:
+                    key = list(field.keys())[0]
+                    value = field[key]
+                    
+                    if not isinstance(value, str):
+                        to_process.append(value)
+                    
+                    field = key #keep process going for this iteration
+            
+            elif isinstance(field, list):
+                to_process.extend(field)
+                continue
+
+            if field[0] == '$': #pymongo operators like $and, $or, etc
+                # if isinstance(query[field],list):
+                #     to_process.extend(query[field])
+                continue                   
+
+            fieldRegister = self.collection_columns.find_one({'field_name':field})
+
+            if fieldRegister == None:
+                raise 'Field not found in collection: ' + field
+            
+            lastFieldVersion = int(fieldRegister['last_edit_version'])
+            firstFieldVersion = int(fieldRegister['first_edit_version'])
+
+            if VersionNumber > lastFieldVersion and lastFieldVersion > max_version_number:
+                max_version_number = lastFieldVersion
+
+            elif VersionNumber < firstFieldVersion and firstFieldVersion < min_version_number:
+                min_version_number = firstFieldVersion
+
+        ###Vou assumir por enquanto que estou sempre consultando a ultima versao, e que portanto sempre vou evoluir. Mas pensar no caso de que seja necessário um retrocesso
+        VersionNumber = max_version_number
+
+        ###Obtaining records which have not been translated yet to the target version and translate them
+        to_translate_up = self.collection.find({'_last_processed_version' : {'$lt' : VersionNumber}})
+        to_translate_down = self.collection.find({'_first_processed_version' : {'$gt' : VersionNumber}})
+
+        for record in to_translate_up:
+            print('Translating up')
+            self.evolute(record, VersionNumber)
+        
+        for record in to_translate_down:
+            print('Translating down')
+            self.evolute(record, VersionNumber)
+
+        query['_min_version_number'] = {'$lte' : version_number} ##Retornando registros traduzidos. 
+        query['_max_version_number'] = {'$gte' : version_number} ##Retornando registros traduzidos. 
+        return self.collection_processed.find(query)
 
     def pretty_print(self, recordsCursor):
         """ Pretty print the records in the console. Semantic changes will be presented in the format "CurrentValue (originally: OriginalValue)"

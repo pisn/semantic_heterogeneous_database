@@ -1,5 +1,6 @@
 
 import zope.interface
+import datetime
 
 class SemanticOperation(zope.interface.Interface):
     def __init__(self, Collection):
@@ -22,12 +23,12 @@ class SemanticOperation(zope.interface.Interface):
 
         """
 
-    def evolute(self, document, operationArgs):
+    def evolute(self, Document, TargetVersion):
         """Evolute a processed document with the operation arguments
         
         Args:
-            document(): document being evoluted to another version
-            operationArgs(): Arguments of the operation. Needed arguments might change for different operations. None of them is mandatory
+            Document(): document being evoluted to another version
+            OperationArgs(): Arguments of the operation. Needed arguments might change for different operations. None of them is mandatory
 
         """
         pass

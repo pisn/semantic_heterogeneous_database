@@ -348,7 +348,7 @@ class InterscityCollection:
         ##obtaining version to be queried
         
         to_process = []
-        to_process.append(query)  #Fazer isso aqui funcionar                   
+        to_process.append(query) 
         
         while len(to_process) > 0:
             field = to_process.pop()
