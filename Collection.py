@@ -246,16 +246,43 @@ class Collection:
         to_translate_down = self.collection.find({'_first_processed_version' : {'$gt' : VersionNumber}})
 
         for record in to_translate_up:
-            print('Translating up')
-            self.evolute(record, VersionNumber)
+            lastVersion = record['_last_processed_version']
+            while lastVersion < VersionNumber:
+                versionRegister = self.collection_versions.find_one({'version_number':lastVersion})
+
+                if versionRegister == None:
+                    raise Exception('Version register not found for ' + str(lastVersion))
+
+                nextOperation = versionRegister['next_operation']
+                nextOperationType = nextOperation['type']
+
+                if nextOperationType not in self.semantic_operations:
+                    raise Exception(f"Operation type not supported: {nextOperationType}")
+
+                semanticOperation = self.semantic_operations[nextOperationType]
+                semanticOperation.evolute(record, versionRegister['next_version'])            
         
         for record in to_translate_down:
-            print('Translating down')
-            self.evolute(record, VersionNumber)
+            firstVersion = record['_first_processed_version']
+            while firstVersion > VersionNumber:
+                versionRegister = self.collection_versions.find_one({'version_number':firstVersion})
 
-        query['_min_version_number'] = {'$lte' : version_number} ##Retornando registros traduzidos. 
-        query['_max_version_number'] = {'$gte' : version_number} ##Retornando registros traduzidos. 
-        return self.collection_processed.find(query)
+                if versionRegister == None:
+                    raise Exception('Version register not found for ' + str(firstVersion))
+
+                previousOperation = versionRegister['previous_operation']
+                previousOperationType = previousOperation['type']
+
+                if previousOperationType not in self.semantic_operations:
+                    raise Exception(f"Operation type not supported: {previousOperationType}")
+
+                semanticOperation = self.semantic_operations[previousOperationType]
+                semanticOperation.evolute(record, versionRegister['previous_version'])            
+            
+
+        Query['_min_version_number'] = {'$lte' : VersionNumber} ##Retornando registros traduzidos. 
+        Query['_max_version_number'] = {'$gte' : VersionNumber} ##Retornando registros traduzidos. 
+        return self.collection_processed.find(Query)
 
     def pretty_print(self, recordsCursor):
         """ Pretty print the records in the console. Semantic changes will be presented in the format "CurrentValue (originally: OriginalValue)"
@@ -263,5 +290,43 @@ class Collection:
         Args:
             recordsCursor(): the cursor for the records, usually obtained through the find functions
         
-        """
+        """        
+        fieldLengths = {}
+             
+        records = list(recordsCursor)
         
+        for record in records:            
+
+            if record['_evoluted'] == True:
+                originalRecord = self.collection.find_one({'_id' : record['_original_id']})
+
+            for field in record.keys():               
+
+                if not field.startswith('_'):                    
+                    if(field not in fieldLengths):
+                        fieldLengths[field] = len(field) #Header is the first set length
+
+                    if record['_evoluted'] == True:
+                        processedValue = record[field]
+                        originalValue = originalRecord[field]
+
+                        if processedValue != originalValue:
+                            record[field] = f'{processedValue} (originaly: {originalValue})'
+
+                    if(fieldLengths[field] < len(str(record[field]))):
+                        fieldLengths[field] = len(str(record[field]))
+
+        lineLength = 0
+        for field in fieldLengths.keys():
+            p = '|' + field + ' '*(fieldLengths[field] - len(field))
+            print(p, end='')
+            lineLength = lineLength + len(p)
+        
+        print('|')                   
+        print ('-'*(lineLength+1))
+        
+        for record in records:            
+            for field in record.keys():  #calculate number of spaces so as fields have the same length in all records
+                if not field.startswith('_'):
+                    print('|' + str(record[field]) + ' '*(fieldLengths[field] - len(str(record[field]))), end='')
+            print('|')
