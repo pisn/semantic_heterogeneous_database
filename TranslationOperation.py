@@ -210,7 +210,8 @@ class TranslationOperation:
         
 
     def execute_many_operations_by_csv(self, filePath):
-        pass
+        #pass
+        print('teste')
 
     def evolute(self, Document, TargetVersion):
         lastVersion = float(Document['_last_processed_version'])
