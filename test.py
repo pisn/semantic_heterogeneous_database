@@ -1,10 +1,10 @@
-from Collection import Collection
+from BasicCollection import BasicCollection
 #import TranslationOperation
 from datetime import datetime
 import os
 import time
 
-myCollection = Collection('interscity', 'collectionTest')     
+myCollection = BasicCollection('interscity', 'collectionTest')     
 myCollection.insert_one('{"pais": "Brasil", "cidade":"Vila Rica"}', datetime(2001,1,1))
 myCollection.insert_one('{"pais": "Brasil", "cidade":"Cuiabá"}', datetime(2002,1,1))
 myCollection.insert_one('{"pais": "Brasil", "cidade":"Rio de Janeiro"}',datetime(2003,1,1))

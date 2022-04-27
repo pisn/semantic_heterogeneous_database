@@ -1,14 +1,12 @@
-import zope.interface
 import sys
 import SemanticOperation
 import datetime
 from argparse import ArgumentError
 from pymongo import MongoClient, ASCENDING, DESCENDING
 
-@zope.interface.implementer(SemanticOperation)
 class TranslationOperation:
-    def __init__(self, Collection):
-        self.collection = Collection
+    def __init__(self, Collection_):
+        self.collection = Collection_
 
     def execute_operation(self, validFromDate:datetime, **args):
         if 'oldValue' not in args:

@@ -1,8 +1,7 @@
 
-import zope.interface
 import datetime
 
-class SemanticOperation(zope.interface.Interface):
+class SemanticOperation:
     def __init__(self, Collection):
         pass
 

@@ -1,5 +1,6 @@
-import Collection
+from Collection import Collection
 import TranslationOperation
+from datetime import datetime
 
 class BasicCollection:
     def __init__ (self,DatabaseName, CollectionName, Host='localhost'):        

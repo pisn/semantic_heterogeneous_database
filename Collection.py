@@ -39,9 +39,6 @@ class Collection:
             self.current_version = self.current_version['version_number']
 
     def register_operation(self, OperationKey, SemanticOperationClass):
-        if not SemanticOperation.implementedBy(SemanticOperationClass):
-            raise ArgumentError("SemanticOperationClass", "SemanticOperationClass provided does not implement SemanticOperation interface")
-
         self.semantic_operations[OperationKey] = SemanticOperationClass
 
 
