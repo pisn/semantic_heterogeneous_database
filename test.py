@@ -1,18 +1,22 @@
 from BasicCollection import BasicCollection
-#import TranslationOperation
+from TranslationOperation import TranslationOperation
 from datetime import datetime
 import os
 import time
 
 myCollection = BasicCollection('interscity', 'collectionTest')     
-myCollection.insert_one('{"pais": "Brasil", "cidade":"Vila Rica"}', datetime(2001,1,1))
-myCollection.insert_one('{"pais": "Brasil", "cidade":"Cuiabá"}', datetime(2002,1,1))
-myCollection.insert_one('{"pais": "Brasil", "cidade":"Rio de Janeiro"}',datetime(2003,1,1))
+# myCollection.insert_one('{"pais": "Brasil", "cidade":"Vila Rica"}', datetime(2001,1,1))
+# myCollection.insert_one('{"pais": "Brasil", "cidade":"Cuiabá"}', datetime(2002,1,1))
+# myCollection.insert_one('{"pais": "Brasil", "cidade":"Rio de Janeiro"}',datetime(2003,1,1))
 
+translationOperation = TranslationOperation(myCollection)
+translationOperation.execute_operation(datetime(2002,6,1), fieldName='cidade', oldValue='Vila Rica', newValue = 'Ouro Preto')
+translationOperation.execute_operation(datetime(2004,6,1), fieldName='cidade', oldValue='Ouro Preto', newValue='Nova Ouro Preto')
+translationOperation.execute_operation(datetime(2003,6,1), fieldName='cidade', oldValue='Cuiabá', newValue='Nova Cuiabá')
 
-# myCollection.execute_translation("cidade","Vila Rica","Ouro Preto", datetime(2002,6,1))  ##QUando eu faco isso, preciso considerar que o registro do Rio de Janeiro deve estar em outra versao a partir de agora
-# myCollection.execute_translation("cidade","Ouro Preto","Nova Ouro Preto", datetime(2004,6,1))  
-# myCollection.execute_translation("cidade","Cuiabá","Nova Cuiabá", datetime(2003,6,1))  
+myCollection.execute_translation("cidade","Vila Rica","Ouro Preto", datetime(2002,6,1))  ##QUando eu faco isso, preciso considerar que o registro do Rio de Janeiro deve estar em outra versao a partir de agora
+myCollection.execute_translation("cidade","Ouro Preto","Nova Ouro Preto", datetime(2004,6,1))  
+myCollection.execute_translation("cidade","Cuiabá","Nova Cuiabá", datetime(2003,6,1))  
 
 
 # myCollection.insert_one('{"pais": "Brasil", "cidade":"São Paulo"}', datetime(2004,1,1))

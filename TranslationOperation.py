@@ -6,7 +6,7 @@ from pymongo import MongoClient, ASCENDING, DESCENDING
 
 class TranslationOperation:
     def __init__(self, Collection_):
-        self.collection = Collection_
+        self.collection = Collection_.collection
 
     def execute_operation(self, validFromDate:datetime, **args):
         if 'oldValue' not in args:
@@ -17,9 +17,6 @@ class TranslationOperation:
 
         if 'fieldName' not in args:
             raise ArgumentError("fieldName","Missing 'fieldName' parameter for translation")
-
-        if not isinstance(validFromDate,datetime):
-            raise TypeError("'validFromDate' argument is not a datetime.")
 
         oldValue = args['oldValue']
         newValue=args['newValue']
