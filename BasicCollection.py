@@ -1,12 +1,12 @@
 from Collection import Collection
-import TranslationOperation
+from TranslationOperation import TranslationOperation
 from datetime import datetime
 
 class BasicCollection:
     def __init__ (self,DatabaseName, CollectionName, Host='localhost'):        
         self.collection = Collection(DatabaseName,CollectionName, Host)
 
-        self.collection.register_operation('translation', TranslationOperation)
+        self.collection.register_operation('translation', TranslationOperation(self))
 
    
     def insert_one(self, JsonString, ValidFromDate:datetime):
@@ -18,7 +18,13 @@ class BasicCollection:
     ##Before executing the query itself, lets translate all possible past terms from the query to current terms. 
     ##We do translate registers, so we should also translate queries
     def find_many(self, QueryString):
-        self.collection.find_many(QueryString)   
+        return self.collection.find_many(QueryString)   
 
     def pretty_print(self, recordsCursor):
-        self.collection.pretty_print(recordsCursor)
+        return self.collection.pretty_print(recordsCursor)
+
+    def execute_operation(self, operationType, validFrom, args):
+        self.collection.execute_operation(operationType, validFrom, args)
+
+    def execute_many_operations_by_csv(self, filePath, operationTypeColumn, validFromField):
+        self.collection.execute_many_operations_by_csv(filePath, operationTypeColumn, validFromField)

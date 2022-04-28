@@ -8,7 +8,7 @@ class TranslationOperation:
     def __init__(self, Collection_):
         self.collection = Collection_.collection
 
-    def execute_operation(self, validFromDate:datetime, **args):
+    def execute_operation(self, validFromDate:datetime, args:dict):
         if 'oldValue' not in args:
             raise ArgumentError("oldValue","Missing 'oldValue' parameter for translation")
         
@@ -35,8 +35,8 @@ class TranslationOperation:
             new_version_number = previous_version['version_number'] + (next_version['version_number'] - previous_version['version_number'])/2
         else:
             next_version = None
-            self.current_version = self.current_version + 1 #this is the newest version now
-            new_version_number = self.current_version
+            self.collection.current_version = self.collection.current_version + 1 #this is the newest version now
+            new_version_number = self.collection.current_version
             
             
         ##For processed records unaffected by the translation, ending in the previous version, version interval should be extended to include the new version,        
@@ -190,23 +190,17 @@ class TranslationOperation:
 
         ##Pre-existing records have already been processed in the new version. We can update this in the original records collection. 
 
-        self.collection.update_many({'$and': [{'_last_processed_version': previous_version['version_number']}
+        self.collection.collection.update_many({'$and': [{'_last_processed_version': previous_version['version_number']}
                                              ]                                     
                                     },
                                     {'$set' :{'_last_processed_version' : new_version_number}})
 
         if(next_version != None):
-            self.collection.update_many({'$and': [{'_first_processed_version': next_version['version_number']}
+            self.collection.collection.update_many({'$and': [{'_first_processed_version': next_version['version_number']}
                                                 ]                                     
                                         },
                                         {'$set':{'_first_processed_version' : new_version_number}})
-                
-        
-        
 
-    def execute_many_operations_by_csv(self, filePath):
-        #pass
-        print('teste')
 
     def evolute(self, Document, TargetVersion):
         lastVersion = float(Document['_last_processed_version'])
@@ -283,6 +277,6 @@ class TranslationOperation:
                 firstVersion = float(versionRegister['previous_version'])                       
                 Document['_first_processed_version'] = firstVersion                
 
-        self.collection.update_one({'_id':Document['_id']}, {'$set': {'_first_processed_version': Document['_first_processed_version'], '_last_processed_version': Document['_last_processed_version']}})
+        self.collection.collection.update_one({'_id':Document['_id']}, {'$set': {'_first_processed_version': Document['_first_processed_version'], '_last_processed_version': Document['_last_processed_version']}})
         
         

@@ -281,6 +281,19 @@ class Collection:
         Query['_max_version_number'] = {'$gte' : VersionNumber} ##Retornando registros traduzidos. 
         return self.collection_processed.find(Query)
 
+    def execute_operation(self, operationType, validFrom, args):                  
+        operation = self.semantic_operations[operationType]
+        operation.execute_operation(validFromDate=validFrom, args=args)
+
+    def execute_many_operations_by_csv(self, filePath, operationTypeColumn, validFromColumn):
+        with open(filePath, 'r') as csvFile:
+            reader = csv.DictReader(csvFile)
+
+            for row in reader:
+                operationType = row[operationTypeColumn]
+                operation = self.semantic_operations[operationType]
+                operation.execute_operation(validFromDate=datetime.strptime(row[validFromColumn], '%Y-%m-%d'), args=row)
+
     def pretty_print(self, recordsCursor):
         """ Pretty print the records in the console. Semantic changes will be presented in the format "CurrentValue (originally: OriginalValue)"
 
