@@ -1,4 +1,5 @@
 from Collection import Collection
+from GroupingOperation import GroupingOperation
 from TranslationOperation import TranslationOperation
 from datetime import datetime
 
@@ -7,6 +8,7 @@ class BasicCollection:
         self.collection = Collection(DatabaseName,CollectionName, Host)
 
         self.collection.register_operation('translation', TranslationOperation(self))
+        self.collection.register_operation('grouping', GroupingOperation(self))
 
    
     def insert_one(self, JsonString, ValidFromDate:datetime):
