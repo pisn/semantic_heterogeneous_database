@@ -5,8 +5,12 @@ import os
 import time
 
 myCollection = BasicCollection('interscity', 'collectionTest')     
-myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim Oriental"}', datetime(1947,1,1))
-myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim Ocidental"}', datetime(1947,1,1))
+# myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim Oriental"}', datetime(1947,1,1))
+# myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim Ocidental"}', datetime(1947,1,1))
+# myCollection.insert_one('{"pais": "Brasil", "cidade":"Cuiabá"}', datetime(2002,1,1))
+# myCollection.insert_one('{"pais": "Brasil", "cidade":"Rio de Janeiro"}',datetime(2003,1,1))
+
+myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim"}', datetime(2001,1,1))
 myCollection.insert_one('{"pais": "Brasil", "cidade":"Cuiabá"}', datetime(2002,1,1))
 myCollection.insert_one('{"pais": "Brasil", "cidade":"Rio de Janeiro"}',datetime(2003,1,1))
 

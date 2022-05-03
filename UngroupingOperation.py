@@ -4,25 +4,25 @@ import datetime
 from argparse import ArgumentError
 from pymongo import MongoClient, ASCENDING, DESCENDING
 
-class GroupingOperation:
+class UngroupingOperation:
     def __init__(self, Collection_):
         self.collection = Collection_.collection
 
     def execute_operation(self, validFromDate:datetime, args:dict):
-        if 'oldValues' not in args:
-            raise ArgumentError("oldValues","Missing 'oldValues' parameter for grouping")
+        if 'oldValue' not in args:
+            raise ArgumentError("oldValue","Missing 'oldValue' parameter for ungrouping")       
         
-        if not isinstance(args['oldValues'],list):
-            raise ArgumentError('oldValues','OldValues argument must be a list')
-        
-        if 'newValue' not in args:
-            raise ArgumentError("newValue","Missing 'newValue' parameter for grouping")
+        if 'newValues' not in args:
+            raise ArgumentError("newValues","Missing 'newValues' parameter for ungrouping")
+
+        if not isinstance(args['newValues'],list):
+            raise ArgumentError('newValues','NewValues argument must be a list')
 
         if 'fieldName' not in args:
-            raise ArgumentError("fieldName","Missing 'fieldName' parameter for grouping")
+            raise ArgumentError("fieldName","Missing 'fieldName' parameter for ungrouping")
 
-        oldValues = args['oldValues']
-        newValue=args['newValue']
+        oldValue = args['oldValue']
+        newValues=args['newValues']
         fieldName = args['fieldName']
 
         previous_version = self.collection.collection_versions.find({'version_valid_from' : {'$lt' : validFromDate}}).sort('version_valid_from',-1)        
@@ -45,16 +45,16 @@ class GroupingOperation:
         ##For processed records unaffected by the grouping, ending in the previous version, version interval should be extended to include the new version,        
 
         res = self.collection.collection_processed.update_many({'$and' : [{'_max_version_number' : previous_version['version_number']},
-                                                               {fieldName : {'$nin' : oldValues}},
-                                                               {fieldName : {'$ne' : newValue}}
+                                                               {fieldName : {'$nin' : newValues}},
+                                                               {fieldName : {'$ne' : oldValue}}
                                                               ]}, {'$set' : {'_max_version_number' : new_version_number}})
         
         
         ##Spliting processed registers affected by the grouping where the new version is within the min and max version number
         if(next_version != None):
             res = self.collection.collection_processed.update_many({'$and' : [{'_min_version_number' : next_version['version_number']},
-                                                                   {'$or' : [{fieldName : {'$in' : oldValues}},
-                                                                              {fieldName : newValue}
+                                                                   {'$or' : [{fieldName : {'$in' : newValues}},
+                                                                              {fieldName : oldValue}
                                                                              ]
                                                                    }
                                                               ]}, {'$set' :{'_min_version_number' : new_version_number}})                                                              
@@ -64,8 +64,8 @@ class GroupingOperation:
             res = self.collection.collection_processed.aggregate([{ '$match': {'$and': [
                                                                             {'_min_version_number' : {'$lte' : previous_version['version_number']}},
                                                                             {'_max_version_number' : {'$gte' : next_version['version_number']}},
-                                                                            {'$or' : [{fieldName : {'$in' : oldValues}},
-                                                                                    {fieldName : newValue}
+                                                                            {'$or' : [{fieldName : oldValue},
+                                                                                    {fieldName : {'$in' : newValues}}
                                                                                     ]
                                                                             } 
                                                                         ]
@@ -78,8 +78,8 @@ class GroupingOperation:
             res = self.collection.collection_processed.update_many({'$and': [
                                                                     {'_min_version_number' : {'$lte' : previous_version['version_number']}},
                                                                     {'_max_version_number' : {'$gte' : next_version['version_number']}},
-                                                                    {'$or' : [{fieldName : {'$in' : oldValues}},
-                                                                              {fieldName : newValue}
+                                                                    {'$or' : [{fieldName : oldValue},
+                                                                              {fieldName : {'$in' : newValues}}
                                                                              ]
                                                                     } 
                                                           ]
@@ -100,8 +100,8 @@ class GroupingOperation:
             #copying records
             res = self.collection.collection_processed.aggregate([{ '$match': {'$and': [
                                                                             {'_max_version_number' : previous_version['version_number']},                                                                            
-                                                                            {'$or' : [{fieldName : {'$in' : oldValues}},                                                                                                                                                                                                                                                   
-                                                                                      {fieldName : newValue}
+                                                                            {'$or' : [{fieldName : {'$in' : newValues}},                                                                                                                                                                                                                                                   
+                                                                                      {fieldName : oldValue}
                                                                                      ]
                                                                             } 
                                                                             ]
@@ -124,10 +124,10 @@ class GroupingOperation:
             "previous_version":previous_version['version_number'],
             "previous_version_valid_from": previous_version['version_valid_from'],
             "previous_operation": {
-                "type": "grouping",
+                "type": "ungrouping",
                 "field":fieldName,
-                "from":newValue,
-                "to":oldValues                
+                "from":newValues,
+                "to":oldValue                
             },
             "next_version":None,
             "next_operation":None,
@@ -135,10 +135,10 @@ class GroupingOperation:
         }        
 
         next_operation = {
-            "type": "grouping",
+            "type": "ungrouping",
             "field": fieldName,
-            "from":oldValues,
-            "to":newValue
+            "from":oldValue,
+            "to":newValues
         }
 
         res = self.collection.collection_versions.update_one({'version_number': previous_version['version_number']}, {'$set' : {'next_operation': next_operation, 'next_version':new_version_number, 'next_version_valid_from' : validFromDate}})
@@ -167,30 +167,30 @@ class GroupingOperation:
         ##Update value of processed versions
 
         versions = self.collection.collection_versions.find({'$and': [{'next_operation.field' : fieldName},
-                                                      {'next_operation.type' : 'grouping'}                                                      
+                                                      {'next_operation.type' : 'ungrouping'}                                                      
                                                      ]}).sort('next_version_valid_from',ASCENDING)
 
         for version_change in versions:
             res = self.collection.collection_processed.update_many({'$and':[{'_min_version_number':{'$gte' : version_change['next_version']}},
                                                                  {'_valid_from' : {'$lte': version_change['next_version_valid_from']}},
-                                                                 {version_change['next_operation']['field'] : {'$in' : version_change['next_operation']['from']}},                                                                 
+                                                                 {version_change['next_operation']['field'] : version_change['next_operation']['from']},                                                                 
                                                                 ]
                                                         }, 
-                                                        {'$set': {version_change['next_operation']['field']: version_change['next_operation']['to'], '_evoluted' : True}})   
+                                                        {'$set': {version_change['next_operation']['field']: ' or '.join(version_change['next_operation']['to']) + ' (ungrouped)', '_evoluted' : True}})   
 
         #Grouping operation cannot be executed in the inverse order. Grouped documents cannot be transformed into ungrouped documents. However, it is possible to make a ghost element to represent this group in the past.
         
         versions = self.collection.collection_versions.find({'$and': [{'previous_operation.field' : fieldName},
-                                                      {'previous_operation.type' : 'grouping'}                                                      
+                                                      {'previous_operation.type' : 'ungrouping'}                                                      
                                                      ]}).sort('previous_version_valid_from',DESCENDING)
 
         for version_change in versions:            
             res = self.collection.collection_processed.update_many({'$and':[{'_max_version_number':{'$lte' : version_change['previous_version']}},
                                                                  {'_valid_from' : {'$gte': version_change['previous_version_valid_from']}},
-                                                                 {version_change['previous_operation']['field'] : version_change['previous_operation']['from']},                                                                 
+                                                                 {version_change['previous_operation']['field'] : {'$in' : version_change['previous_operation']['from']}},                                                                 
                                                                 ]
                                                         }, 
-                                                        {'$set': {version_change['previous_operation']['field']: ' or '.join(version_change['previous_operation']['to']) + ' (grouped)', '_evoluted' : True}})   
+                                                        {'$set': {version_change['previous_operation']['field']: version_change['previous_operation']['to'], '_evoluted' : True}})   
         
 
         ##Pre-existing records have already been processed in the new version. We can update this in the original records collection. 
@@ -225,13 +225,13 @@ class GroupingOperation:
 
                 if(evolutionOperation['type'] == 'grouping'):
                     field = evolutionOperation['field']
-                    oldValues = evolutionOperation['from']
-                    newValue = evolutionOperation['to']
+                    oldValue = evolutionOperation['from']
+                    newValues = evolutionOperation['to']
 
                     if(field in lastVersionDocument):
-                        if lastVersionDocument[field] in oldValues:
+                        if lastVersionDocument[field] == oldValue:
                             ##new row needed because register must change
-                            lastVersionDocument[field] = newValue
+                            lastVersionDocument[field] = ' or '.join(newValues) + ' (ungrouped)'
                             lastVersionDocument['_evoluted'] = True
                             lastVersionDocument['_min_version_number'] = versionRegister['next_version']
                             lastVersionDocument['_max_version_number'] = versionRegister['next_version']
@@ -261,14 +261,14 @@ class GroupingOperation:
 
                 evolutionOperation = versionRegister['previous_operation']
 
-                if(evolutionOperation['type'] == 'grouping'):
+                if(evolutionOperation['type'] == 'ungrouping'):
                     field = evolutionOperation['field']
-                    oldValue = evolutionOperation['to']
-                    newValues = evolutionOperation['from']
+                    oldValues = evolutionOperation['to']
+                    newValue = evolutionOperation['from']
 
                     if(field in firstVersionDocument):
-                        if firstVersionDocument[field] == oldValue:
-                            firstVersionDocument[field] = ' or '.join(newValues) + ' (grouped)'
+                        if firstVersionDocument[field] in oldValues:
+                            firstVersionDocument[field] = newValue
                             firstVersionDocument['_evoluted'] = True
                             firstVersionDocument['_min_version_number'] = versionRegister['previous_version']
                             firstVersionDocument['_max_version_number'] = versionRegister['previous_version']
