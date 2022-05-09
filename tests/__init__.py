@@ -1,0 +1,1 @@
+from .test_translation import TranslationTest

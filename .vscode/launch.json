@@ -9,7 +9,7 @@
             "name": "Python: Test File",
             "type": "python",
             "request": "launch",
-            "program": "test.py",
+            "program": "manual_test.py",
             "console": "integratedTerminal"
         }
     ]
