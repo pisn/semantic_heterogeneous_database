@@ -6,8 +6,8 @@ from datetime import datetime
 from UngroupingOperation import UngroupingOperation
 
 class BasicCollection:
-    def __init__ (self,DatabaseName, CollectionName, Host='localhost'):        
-        self.collection = Collection(DatabaseName,CollectionName, Host)
+    def __init__ (self,DatabaseName, CollectionName, Host='localhost', client=None):        
+        self.collection = Collection(DatabaseName,CollectionName, Host, client)
 
         self.collection.register_operation('translation', TranslationOperation(self))
         self.collection.register_operation('grouping', GroupingOperation(self))

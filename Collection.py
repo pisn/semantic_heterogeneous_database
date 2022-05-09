@@ -8,10 +8,15 @@ import json
 import csv
 
 class Collection:
-    def __init__ (self,DatabaseName, CollectionName, Host='localhost'):        
+    def __init__ (self,DatabaseName, CollectionName, Host='localhost', client=None):       
+        if MongoClient == None:
+            self.client = MongoClient(Host)
+        else:
+            self.client = client ##it is essencial I can use an external client for redirecting auto-testing        
+
         self.operations = {}
 
-        self.client = MongoClient(Host)
+        
         self.database_name = DatabaseName
         self.db = self.client[DatabaseName]
         self.collection = self.db[CollectionName]

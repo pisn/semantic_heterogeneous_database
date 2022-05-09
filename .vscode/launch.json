@@ -5,12 +5,21 @@
     "version": "0.2.0",
     "configurations": [
     {"name":"Python: Current File","type":"python","request":"launch","program":"${file}","console":"integratedTerminal"},
-        {
-            "name": "Python: Test File",
-            "type": "python",
-            "request": "launch",
-            "program": "manual_test.py",
-            "console": "integratedTerminal"
-        }
+    {
+        "name": "Python: Manual Test File",
+        "type": "python",
+        "request": "launch",
+        "program": "manual_test.py",
+        "console": "integratedTerminal"
+    },
+    {
+        "name": "Python: Unittest File",
+        "type": "python",
+        "request": "launch",
+        "program": "tests.py",
+        "console": "integratedTerminal"
+    }
+
+
     ]
 }
