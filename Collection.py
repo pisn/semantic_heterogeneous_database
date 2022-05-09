@@ -8,15 +8,10 @@ import json
 import csv
 
 class Collection:
-    def __init__ (self,DatabaseName, CollectionName, Host='localhost', client=None):       
-        if MongoClient == None:
-            self.client = MongoClient(Host)
-        else:
-            self.client = client ##it is essencial I can use an external client for redirecting auto-testing        
-
+    def __init__ (self,DatabaseName, CollectionName, Host='localhost'):       
         self.operations = {}
 
-        
+        self.client = MongoClient(Host)        
         self.database_name = DatabaseName
         self.db = self.client[DatabaseName]
         self.collection = self.db[CollectionName]
@@ -135,20 +130,8 @@ class Collection:
                 if(column_register == None):
                     self.collection_columns.insert_one({'field_name':field, 'first_edit_version' : VersionNumber ,'last_edit_version': VersionNumber})           
 
-    ##Before executing the query itself, lets translate all possible past terms from the query to current terms. 
-    ##We do translate registers, so we should also translate queries
-    def find_many(self, QueryString):
-        """ Query the collection with the supplied queryString
-
-        Args:
-            queryString(): string of the query in json. The syntax is the same as the pymongo syntax.
-        
-        Returns: a cursor for the records returned by the query
-
-        """
-
+    def __process_query(self,QueryString):
         queryTerms = {}        
-
         
         for field in QueryString.keys():             
             queryTerms[field] = set()
@@ -160,9 +143,10 @@ class Collection:
             while len(to_process) > 0:
                 fieldValue = to_process.pop()
                 
-                versions = self.collection_versions.find({'next_operation.field':field,'next_operation.from':fieldValue})
+                versions = self.collection_versions.count_documents({'next_operation.field':field,'next_operation.from':fieldValue})
 
-                if(versions.count() > 0):
+                if(versions > 0):
+                    versions = self.collection_versions.find({'next_operation.field':field,'next_operation.from':fieldValue})
                     for version in versions:
                         new_term = version['next_operation']['to']
                         to_process.append(new_term)
@@ -181,11 +165,31 @@ class Collection:
 
             ands.append({'$or' : ors})
 
-        finalQuery = {'$and' : ands}                  
+        finalQuery = {'$and' : ands}    
+        
+        return finalQuery
+    
+    def count_documents(self, QueryString):
+        finalQuery = self.__process_query(QueryString)
+        return self.__query_specific(finalQuery, isCount=True)
+
+    
+    ##Before executing the query itself, lets translate all possible past terms from the query to current terms. 
+    ##We do translate registers, so we should also translate queries
+    def find_many(self, QueryString):
+        """ Query the collection with the supplied queryString
+
+        Args:
+            queryString(): string of the query in json. The syntax is the same as the pymongo syntax.
+        
+        Returns: a cursor for the records returned by the query
+
+        """
+        finalQuery = self.__process_query(QueryString)                  
         
         return self.__query_specific(finalQuery)     
 
-    def __query_specific(self, Query, VersionNumber=None):
+    def __query_specific(self, Query, VersionNumber=None, isCount=False):
         #Eu preciso depois permitir que seja o tempo da versao, nao o numero
         #E tambem que dados possam ser inseridos com tempo anterior, e assumir a versao da época.
 
@@ -284,7 +288,11 @@ class Collection:
 
         Query['_min_version_number'] = {'$lte' : VersionNumber} ##Retornando registros traduzidos. 
         Query['_max_version_number'] = {'$gte' : VersionNumber} ##Retornando registros traduzidos. 
-        return self.collection_processed.find(Query)
+
+        if isCount:
+            return self.collection_processed.count_documents(Query)
+        else:
+            return self.collection_processed.find(Query)
 
     def execute_operation(self, operationType, validFrom, args):                  
         operation = self.semantic_operations[operationType]
