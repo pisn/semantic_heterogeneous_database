@@ -1,4 +1,6 @@
 import sys
+
+from importlib_metadata import version
 import SemanticOperation
 import datetime
 from argparse import ArgumentError
@@ -43,25 +45,28 @@ class TranslationOperation:
         ##For processed records unaffected by the translation, ending in the previous version, version interval should be extended to include the new version,        
 
         res = self.collection.collection_processed.update_many({'$and' : [{'_max_version_number' : previous_version['version_number']},
-                                                               {fieldName : {'$ne' : oldValue}},
-                                                               {fieldName : {'$ne' : newValue}}
+                                                                    {fieldName : {'$ne' : oldValue}},
+                                                                    {fieldName : {'$ne' : newValue}}
+                                                               
                                                               ]}, {'$set' : {'_max_version_number' : new_version_number}})
         
         
         ##Spliting processed registers affected by the translation where the new version is within the min and max version number
         if(next_version != None):
-            res = self.collection.collection_processed.update_many({'$and' : [{'_min_version_number' : next_version['version_number']},
+            res = self.collection.collection_processed.update_many({'$and' : [{'_min_version_number' : next_version['version_number']},                                                                     
                                                                    {'$or' : [{fieldName : oldValue},
                                                                               {fieldName : newValue}
                                                                              ]
                                                                    }
-                                                              ]}, {'$set' :{'_min_version_number' : new_version_number}})                                                              
+                                                              ]}, {
+                                                                  '$set' :{'_min_version_number' : new_version_number}                                                       
+                                                                  })                                                              
       
             
             #Copying all records in this situation
             res = self.collection.collection_processed.aggregate([{ '$match': {'$and': [
                                                                             {'_min_version_number' : {'$lte' : previous_version['version_number']}},
-                                                                            {'_max_version_number' : {'$gte' : next_version['version_number']}},
+                                                                            {'_max_version_number' : {'$gte' : next_version['version_number']}},                                                                            
                                                                             {'$or' : [{fieldName : oldValue},
                                                                                     {fieldName : newValue}
                                                                                     ]
@@ -75,7 +80,7 @@ class TranslationOperation:
             ##part 1 of split - old registers is cut until last version before translation          
             res = self.collection.collection_processed.update_many({'$and': [
                                                                     {'_min_version_number' : {'$lte' : previous_version['version_number']}},
-                                                                    {'_max_version_number' : {'$gte' : next_version['version_number']}},
+                                                                    {'_max_version_number' : {'$gte' : next_version['version_number']}},                                                                    
                                                                     {'$or' : [{fieldName : oldValue},
                                                                               {fieldName : newValue}
                                                                              ]
@@ -109,8 +114,9 @@ class TranslationOperation:
                                                       { '$out' : "to_split" } ])
             #updating version 
             res = self.collection.db['to_split'].update_many({},
-                                                  {'$set' : {'_min_version_number' : new_version_number, '_max_version_number' : new_version_number}}
-                                                 )
+                                                  {
+                                                      '$set' : {'_min_version_number' : new_version_number, '_max_version_number' : new_version_number}                                                      
+                                                  })
 
             res = self.collection.db['to_split'].aggregate([{'$match' : {}}, {'$merge': {'into' : self.collection.collection_processed.name, 'whenMatched' : 'fail'}}])          
             self.collection.db['to_split'].drop()
@@ -174,7 +180,20 @@ class TranslationOperation:
                                                                  {version_change['next_operation']['field'] : version_change['next_operation']['from']},                                                                 
                                                                 ]
                                                         }, 
-                                                        {'$set': {version_change['next_operation']['field']: version_change['next_operation']['to'], '_evoluted' : True}})   
+                                                        {
+                                                            '$set': {version_change['next_operation']['field']: version_change['next_operation']['to'], '_evoluted' : True},
+                                                            '$push' : {'_evolution_list':version_change['version_number']}
+                                                        })
+            
+            ##Lets just append to evolution list to the original records altered
+            res = self.collection.collection_processed.update_many({'$and':[{'_max_version_number':{'$lte' : version_change['next_version']}},
+                                                                 {'_valid_from' : {'$lte': version_change['next_version_valid_from']}},
+                                                                 {version_change['next_operation']['field'] : version_change['next_operation']['from']},                                                                 
+                                                                ]
+                                                        }, 
+                                                        {                                                            
+                                                            '$push' : {'_evolution_list':version_change['next_version']}
+                                                        })
 
         versions = self.collection.collection_versions.find({'$and': [{'previous_operation.field' : fieldName},
                                                       {'previous_operation.type' : 'translation'}                                                      
@@ -182,11 +201,24 @@ class TranslationOperation:
 
         for version_change in versions:            
             res = self.collection.collection_processed.update_many({'$and':[{'_max_version_number':{'$lte' : version_change['previous_version']}},
-                                                                 {'_valid_from' : {'$gte': version_change['previous_version_valid_from']}},
+                                                                 {'_valid_from' : {'$gte': version_change['version_valid_from']}},
                                                                  {version_change['previous_operation']['field'] : version_change['previous_operation']['from']},                                                                 
                                                                 ]
                                                         }, 
-                                                        {'$set': {version_change['previous_operation']['field']: version_change['previous_operation']['to'], '_evoluted' : True}})   
+                                                        {
+                                                            '$set': {version_change['previous_operation']['field']: version_change['previous_operation']['to'], '_evoluted' : True},
+                                                            '$push' : {'_evolution_list':version_change['version_number']}
+                                                        })   
+
+            ##Lets just append to evolution list to the original records altered
+            res = self.collection.collection_processed.update_many({'$and':[{'_min_version_number':{'$gte' : version_change['previous_version']}},
+                                                                 {'_valid_from' : {'$gte': version_change['version_valid_from']}},
+                                                                 {version_change['previous_operation']['field'] : version_change['previous_operation']['from']},                                                                 
+                                                                ]
+                                                        }, 
+                                                        {                                                            
+                                                            '$push' : {'_evolution_list':version_change['previous_version']}
+                                                        })                                                        
         
 
         ##Pre-existing records have already been processed in the new version. We can update this in the original records collection. 
@@ -229,6 +261,10 @@ class TranslationOperation:
                             ##new row needed because register must change
                             lastVersionDocument[field] = newValue
                             lastVersionDocument['_evoluted'] = True
+                            lastVersionDocument['_evolution_list'] = [versionRegister['next_version']]
+                            if 'previous_version' in versionRegister:
+                                lastVersionDocument['_evolution_list'].append(versionRegister['previous_version'])
+
                             lastVersionDocument['_min_version_number'] = versionRegister['next_version']
                             lastVersionDocument['_max_version_number'] = versionRegister['next_version']
                             lastVersionDocument.pop('_id')
@@ -265,7 +301,10 @@ class TranslationOperation:
                     if(field in firstVersionDocument):
                         if firstVersionDocument[field] == oldValue:
                             firstVersionDocument[field] = newValue
-                            firstVersionDocument['_evoluted'] = True
+                            firstVersionDocument['_evoluted'] = True                                                        
+                            firstVersionDocument['_evolution_list'] = [versionRegister['previous_version']]
+                            if 'next_version' in versionRegister:
+                                firstVersionDocument['_evolution_list'].append(versionRegister['next_version'])
                             firstVersionDocument['_min_version_number'] = versionRegister['previous_version']
                             firstVersionDocument['_max_version_number'] = versionRegister['previous_version']
                             firstVersionDocument.pop('_id')

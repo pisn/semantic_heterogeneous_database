@@ -71,6 +71,7 @@ class Collection:
         p['_original_version'] = VersionNumber
         p['_valid_from'] = ValidFromDate
         p['_evoluted'] = False
+        p['_evolution_list'] = []
 
         self.collection_processed.insert_one(p)
 
@@ -120,6 +121,7 @@ class Collection:
         processed_group['_original_version'] = VersionNumber
         processed_group['_valid_from'] = ValidFromDate
         processed_group['_evoluted'] = False                     
+        processed_group['_evolution_list'] = []
         
         self.collection_processed.insert_many(processed_group.to_dict('records'))
 
@@ -129,8 +131,14 @@ class Collection:
 
                 if(column_register == None):
                     self.collection_columns.insert_one({'field_name':field, 'first_edit_version' : VersionNumber ,'last_edit_version': VersionNumber})           
-
+    
     def __process_query(self,QueryString):
+        forward = self.__process_query_forward(QueryString)
+        backward = self.__process_query_backward(QueryString)
+
+        return {'$or':[forward, backward]}
+
+    def __process_query_forward(self,QueryString):
         queryTerms = {}        
         
         for field in QueryString.keys():             
@@ -144,14 +152,18 @@ class Collection:
                 fieldValue = to_process.pop()
                 
                 versions = self.collection_versions.count_documents({'next_operation.field':field,'next_operation.from':fieldValue})
-
+                version_number = None
                 if(versions > 0):
                     versions = self.collection_versions.find({'next_operation.field':field,'next_operation.from':fieldValue})
                     for version in versions:
-                        new_term = version['next_operation']['to']
-                        to_process.append(new_term)
+                        fieldValue = version['next_operation']['to']
+                        version_number = version['version_number']
+                        to_process.append((fieldValue,version_number)) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query                        
+                
+                if version_number == None:
+                    queryTerms[field].add(fieldValue) 
                 else:
-                    queryTerms[field].add(fieldValue) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query
+                    queryTerms[field].add((fieldValue,version_number)) 
 
                 
         
@@ -161,7 +173,56 @@ class Collection:
             ors = []
 
             for value in queryTerms[field]:
-                ors.append({field:value})
+                if isinstance(value,tuple):
+                    ors.append({'$and':[{field:value[0]},{'_evolution_list':value[1]}]})
+                else:
+                    ors.append({field:value})
+
+            ands.append({'$or' : ors})
+
+        finalQuery = {'$and' : ands}    
+        
+        return finalQuery
+
+    def __process_query_backward(self,QueryString):
+        queryTerms = {}        
+        
+        for field in QueryString.keys():             
+            queryTerms[field] = set()
+            queryTerms[field].add(QueryString[field])
+
+            to_process = []
+            to_process.append(QueryString[field])
+
+            while len(to_process) > 0:
+                fieldValue = to_process.pop()
+                
+                versions = self.collection_versions.count_documents({'previous_operation.field':field,'previous_operation.from':fieldValue})
+                version_number = None
+                if(versions > 0):
+                    versions = self.collection_versions.find({'previous_operation.field':field,'previous_operation.from':fieldValue})
+                    for version in versions:
+                        fieldValue = version['previous_operation']['to']
+                        version_number = version['version_number']
+                        to_process.append((fieldValue,version_number)) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query                        
+                
+                if version_number == None:
+                    queryTerms[field].add(fieldValue) 
+                else:
+                    queryTerms[field].add((fieldValue,version_number)) 
+
+                
+        
+        ands = []
+
+        for field in queryTerms.keys():
+            ors = []
+
+            for value in queryTerms[field]:
+                if isinstance(value,tuple):
+                    ors.append({'$and':[{field:value[0]},{'_evolution_list':value[1]}]})
+                else:
+                    ors.append({field:value})
 
             ands.append({'$or' : ors})
 
@@ -170,7 +231,7 @@ class Collection:
         return finalQuery
     
     def count_documents(self, QueryString):
-        finalQuery = self.__process_query(QueryString)
+        finalQuery = self.__process_query(QueryString)        
         return self.__query_specific(finalQuery, isCount=True)
 
     
@@ -185,8 +246,7 @@ class Collection:
         Returns: a cursor for the records returned by the query
 
         """
-        finalQuery = self.__process_query(QueryString)                  
-        
+        finalQuery = self.__process_query(QueryString)                          
         return self.__query_specific(finalQuery)     
 
     def __query_specific(self, Query, VersionNumber=None, isCount=False):
@@ -225,7 +285,7 @@ class Collection:
                 to_process.extend(field)
                 continue
 
-            if field[0] == '$': #pymongo operators like $and, $or, etc
+            if not isinstance(field,str) or field[0] == '$' or field[0]=='_': #pymongo operators like $and, $or, etc
                 # if isinstance(query[field],list):
                 #     to_process.extend(query[field])
                 continue                   
