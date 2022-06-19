@@ -121,7 +121,7 @@ class Collection:
         processed_group['_original_version'] = VersionNumber
         processed_group['_valid_from'] = ValidFromDate
         processed_group['_evoluted'] = False                     
-        processed_group['_evolution_list'] = []
+        #processed_group['_evolution_list'] = []
         
         self.collection_processed.insert_many(processed_group.to_dict('records'))
 
