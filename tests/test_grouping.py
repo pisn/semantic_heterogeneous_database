@@ -1,7 +1,7 @@
-from .test_base import TranslationBase
+from .test_base import TestBase
 from datetime import datetime
 
-class GroupingTest(TranslationBase):
+class GroupingTest(TestBase):
     def test_grouping_forward(self):
         collection = self.BasicCollection
         collection.insert_one('{"country":"F", "city":"G"}',datetime(1900,12,20))        

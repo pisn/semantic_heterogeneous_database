@@ -1,7 +1,7 @@
 import unittest
 from BasicCollection import BasicCollection
 
-class TranslationBase(unittest.TestCase):
+class TestBase(unittest.TestCase):
 
     def setUp(self):                
         self.BasicCollection = BasicCollection('test_database','test_collection','localhost')       

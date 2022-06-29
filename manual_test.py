@@ -27,8 +27,8 @@ myCollection = BasicCollection('interscity', 'collectionTest')
 # myCollection.execute_operation('translation',datetime(2003,6,1), {'fieldName':'cidade', 'oldValue':'Cuiabá', 'newValue':'Nova Cuiabá'})
 
 #testeQuery = myCollection.find_many({'pais' : 'Alemanha'})
-testeQuery = myCollection.find_many({'cidade' : 'Berlim'})
-myCollection.pretty_print(testeQuery)
+# testeQuery = myCollection.find_many({'cidade' : 'Berlim'})
+# myCollection.pretty_print(testeQuery)
 
 #myCollection = BasicCollection('IBGE', 'estimativa_populacional')     
 # translationOperation = TranslationOperation(myCollection)
@@ -60,3 +60,9 @@ myCollection.pretty_print(testeQuery)
 
 # query = myCollection.find_many({'city': 'City A'})
 # myCollection.pretty_print(query)
+
+#myCollection.insert_one('{"country":"X", "city":"Pi"}',datetime(1900,12,20))                
+#myCollection.execute_operation('ungrouping',datetime(1930,6,20), {'fieldName':'city', 'oldValue':'Pi', 'newValues':['Q','W']})        
+
+query = myCollection.find_many({'city':'Pi'})
+myCollection.pretty_print(query)

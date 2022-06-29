@@ -1,7 +1,7 @@
-from .test_base import TranslationBase
+from .test_base import TestBase
 from datetime import datetime
 
-class TranslationTest(TranslationBase):
+class TranslationTest(TestBase):
 
     def test_translation_forward(self):       
         collection = self.BasicCollection
