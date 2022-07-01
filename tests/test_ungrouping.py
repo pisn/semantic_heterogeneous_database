@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-from .test_base import TranslationBase
-from datetime import datetime
-
-class UngroupingTest(TranslationBase):
-    pass
-=======
 from tests.test_base import TestBase
 from datetime import datetime
 
@@ -47,4 +40,3 @@ class UngroupingTest(TestBase):
 
         count = collection.count_documents({'city':'Jr1'})
         self.assertEqual(count,0,'The original record was already valid when the ungrouping took place. No record should be returned')
->>>>>>> df7216111a1e335aea644596b7636b5a0168cc72

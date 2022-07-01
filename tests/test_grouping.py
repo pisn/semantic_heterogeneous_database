@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-from .test_base import TranslationBase
-from datetime import datetime
-
-class GroupingTest(TranslationBase):
-
-    pass
-=======
 from .test_base import TestBase
 from datetime import datetime
 
@@ -49,4 +41,3 @@ class GroupingTest(TestBase):
         self.assertEqual(count,0,'The original record was already valid when the grouping took place. No record should be returned')
 
         
->>>>>>> df7216111a1e335aea644596b7636b5a0168cc72
