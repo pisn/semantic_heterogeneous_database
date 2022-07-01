@@ -1,6 +1,5 @@
 import pandas as pd
-import SemanticOperation
-from argparse import ArgumentError
+from .SemanticOperation import SemanticOperation
 from bson.objectid import ObjectId
 from pymongo import MongoClient, ASCENDING,DESCENDING
 from datetime import datetime

@@ -1,9 +1,9 @@
-from Collection import Collection
-from GroupingOperation import GroupingOperation
-from TranslationOperation import TranslationOperation
+from .Collection import Collection
+from .GroupingOperation import GroupingOperation
+from .TranslationOperation import TranslationOperation
 from datetime import datetime
 
-from UngroupingOperation import UngroupingOperation
+from .UngroupingOperation import UngroupingOperation
 
 class BasicCollection:
     def __init__ (self,DatabaseName, CollectionName, Host='localhost'):        

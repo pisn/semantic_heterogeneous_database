@@ -1,5 +1,5 @@
 import unittest
-from BasicCollection import BasicCollection
+from ..BasicCollection import BasicCollection
 
 class TestBase(unittest.TestCase):
 

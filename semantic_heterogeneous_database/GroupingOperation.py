@@ -1,5 +1,5 @@
 import sys
-import SemanticOperation
+from .SemanticOperation import SemanticOperation
 import datetime
 from argparse import ArgumentError
 from pymongo import MongoClient, ASCENDING, DESCENDING
