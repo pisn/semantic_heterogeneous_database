@@ -28,12 +28,14 @@ class GroupingOperation:
         previous_version = self.collection.collection_versions.find({'version_valid_from' : {'$lt' : validFromDate}}).sort('version_valid_from',-1)        
         previous_version = next(previous_version, None)
 
-        next_version = self.collection.collection_versions.find({'version_valid_from' : {'$gte' : validFromDate}}).sort('version_valid_from')        
+        next_version_count = self.collection.collection_versions.count_documents({'version_valid_from' : {'$gte' : validFromDate}})
+        
 
         #If there are no versions starting from dates greater than the refDate, the new version number is just one increment after the last version before the refDate
         #In the other hand, if there are, this new version must be registered with a number before the previous version and the next version
         
-        if(next_version.count() > 0):
+        if(next_version_count > 0):
+            next_version = self.collection.collection_versions.find({'version_valid_from' : {'$gte' : validFromDate}}).sort('version_valid_from')        
             next_version = next(next_version,None)
             new_version_number = previous_version['version_number'] + (next_version['version_number'] - previous_version['version_number'])/2
         else:
