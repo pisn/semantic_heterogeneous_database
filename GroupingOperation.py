@@ -176,7 +176,20 @@ class GroupingOperation:
                                                                  {version_change['next_operation']['field'] : {'$in' : version_change['next_operation']['from']}},                                                                 
                                                                 ]
                                                         }, 
-                                                        {'$set': {version_change['next_operation']['field']: version_change['next_operation']['to'], '_evoluted' : True}})   
+                                                        {'$set': {version_change['next_operation']['field']: version_change['next_operation']['to'], '_evoluted' : True},
+                                                         '$push' : {'_evolution_list': version_change['version_number']}
+                                                        })   
+
+            ##Lets just append to evolution list to the original records altered
+            res = self.collection.collection_processed.update_many({'$and':[{'_max_version_number':{'$lte' : version_change['next_version']}},
+                                                                 {'_valid_from' : {'$lte': version_change['next_version_valid_from']}},
+                                                                 {version_change['next_operation']['field'] : {'$in' : version_change['next_operation']['from']}},                                                                 
+                                                                ]
+                                                        }, 
+                                                        {                                                            
+                                                            '$push' : {'_evolution_list':version_change['next_version']}
+                                                        })
+            
 
         #Grouping operation cannot be executed in the inverse order. Grouped documents cannot be transformed into ungrouped documents. However, it is possible to make a ghost element to represent this group in the past.
         
@@ -190,7 +203,19 @@ class GroupingOperation:
                                                                  {version_change['previous_operation']['field'] : version_change['previous_operation']['from']},                                                                 
                                                                 ]
                                                         }, 
-                                                        {'$set': {version_change['previous_operation']['field']: ' or '.join(version_change['previous_operation']['to']) + ' (grouped)', '_evoluted' : True}})   
+                                                        {'$set': {version_change['previous_operation']['field']: ' or '.join(version_change['previous_operation']['to']) + ' (grouped)', '_evoluted' : True},
+                                                         '$push' : {'_evolution_list':version_change['version_number']}
+                                                        })   
+
+            ##Lets just append to evolution list to the original records altered
+            res = self.collection.collection_processed.update_many({'$and':[{'_min_version_number':{'$gte' : version_change['previous_version']}},
+                                                                 {'_valid_from' : {'$gte': version_change['version_valid_from']}},
+                                                                 {version_change['previous_operation']['field'] : version_change['previous_operation']['from']},                                                                 
+                                                                ]
+                                                        }, 
+                                                        {                                                            
+                                                            '$push' : {'_evolution_list':version_change['previous_version']}
+                                                        })                                                        
         
 
         ##Pre-existing records have already been processed in the new version. We can update this in the original records collection. 
@@ -233,6 +258,10 @@ class GroupingOperation:
                             ##new row needed because register must change
                             lastVersionDocument[field] = newValue
                             lastVersionDocument['_evoluted'] = True
+                            lastVersionDocument['_evolution_list'] = [versionRegister['next_version']]
+                            if 'previous_version' in versionRegister:
+                                lastVersionDocument['_evolution_list'].append(versionRegister['previous_version'])
+
                             lastVersionDocument['_min_version_number'] = versionRegister['next_version']
                             lastVersionDocument['_max_version_number'] = versionRegister['next_version']
                             lastVersionDocument.pop('_id')
@@ -270,6 +299,11 @@ class GroupingOperation:
                         if firstVersionDocument[field] == oldValue:
                             firstVersionDocument[field] = ' or '.join(newValues) + ' (grouped)'
                             firstVersionDocument['_evoluted'] = True
+                            
+                            firstVersionDocument['_evolution_list'] = [versionRegister['previous_version']]
+                            if 'next_version' in versionRegister:
+                                firstVersionDocument['_evolution_list'].append(versionRegister['next_version'])
+
                             firstVersionDocument['_min_version_number'] = versionRegister['previous_version']
                             firstVersionDocument['_max_version_number'] = versionRegister['previous_version']
                             firstVersionDocument.pop('_id')

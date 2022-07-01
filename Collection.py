@@ -121,7 +121,7 @@ class Collection:
         processed_group['_original_version'] = VersionNumber
         processed_group['_valid_from'] = ValidFromDate
         processed_group['_evoluted'] = False                     
-        processed_group['_evolution_list'] = []
+        #processed_group['_evolution_list'] = []
         
         self.collection_processed.insert_many(processed_group.to_dict('records'))
 
@@ -158,12 +158,21 @@ class Collection:
                     for version in versions:
                         fieldValue = version['next_operation']['to']
                         version_number = version['version_number']
-                        to_process.append((fieldValue,version_number)) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query                        
+
+                        if isinstance(fieldValue, list):
+                            for f in fieldValue:
+                                to_process.append((f, version_number))
+                        else:
+                            to_process.append((fieldValue,version_number)) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query                        
                 
                 if version_number == None:
                     queryTerms[field].add(fieldValue) 
                 else:
-                    queryTerms[field].add((fieldValue,version_number)) 
+                    if isinstance(fieldValue, list):
+                        for f in fieldValue:
+                            queryTerms[field].add((f,version_number))     
+                    else:
+                        queryTerms[field].add((fieldValue,version_number)) 
 
                 
         
@@ -204,12 +213,21 @@ class Collection:
                     for version in versions:
                         fieldValue = version['previous_operation']['to']
                         version_number = version['version_number']
-                        to_process.append((fieldValue,version_number)) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query                        
+
+                        if isinstance(fieldValue,list):
+                            for f in fieldValue:
+                                to_process.append((f,version_number))
+                        else:
+                            to_process.append((fieldValue,version_number)) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query                        
                 
                 if version_number == None:
                     queryTerms[field].add(fieldValue) 
                 else:
-                    queryTerms[field].add((fieldValue,version_number)) 
+                    if isinstance(fieldValue, list):
+                        for f in fieldValue:
+                            queryTerms[field].add((f,version_number))     
+                    else:
+                        queryTerms[field].add((fieldValue,version_number)) 
 
                 
         
