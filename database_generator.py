@@ -46,7 +46,7 @@ class DatabaseGenerator:
             newValue = oldValue
 
             while newValue == oldValue:
-                newValue = random.choice(self.generated_values)
+                newValue = random.choice(self.generated_values[fieldName])
             
             arguments = {
                 'fieldName' : fieldName,
@@ -55,9 +55,11 @@ class DatabaseGenerator:
             }
             
         elif operation_type == 'grouping':
-            fieldName = random.choice(self.fields)[0]
+            fieldsList = list(filter(lambda f: f[1] != 'float', self.fields))
+            field = random.choice(fieldsList) #It doesn't make sense to group float values
+            fieldName = field[0]
             oldValues = [random.choice(self.generated_values[fieldName]), random.choice(self.generated_values[fieldName])]
-            newValue = random.choice(self.generated_values)            
+            newValue = random.choice(self.generated_values[fieldName])            
 
             arguments = {
                 'fieldName' : fieldName,
@@ -76,19 +78,19 @@ class DatabaseGenerator:
         self.collection_name = ''.join(random.choice(letters) for i in range(10))
 
         ##Generating fields present in the documents        
-        self.fields = set()
+        self.fields = list()
         for i in range(number_of_fields):
             field_name = ''.join(random.choice(letters) for a in range(5))
             field_type = random.choice(DatabaseGenerator.FIELD_TYPES)
-            self.fields.add((field_name, field_type))
+            self.fields.append((field_name, field_type))
         
         self.collection = BasicCollection(self.database_name, self.collection_name, self.host)
 
         for i in range(number_of_records):
             self.__generate_record()
 
-        for i in range(number_of_versions):
+        for i in range(number_of_versions-1):
             self.__generate_version()
 
 d = DatabaseGenerator()
-d.generate(200, 1, 5)
+d.generate(200, 5, 11)
