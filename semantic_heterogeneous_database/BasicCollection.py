@@ -16,6 +16,9 @@ class BasicCollection:
    
     def insert_one(self, JsonString, ValidFromDate:datetime):
         self.collection.insert_one(JsonString, ValidFromDate)
+
+    def insert_many_by_dataframe(self, dataframe, ValidFromField):
+        self.collection.insert_many_by_dataframe(dataframe, ValidFromField)
     
     def insert_many_by_csv(self, FilePath, ValidFromField, ValidFromDateFormat='%Y-%m-%d', Delimiter=','):
         self.collection.insert_many_by_csv(FilePath, ValidFromField, ValidFromDateFormat, Delimiter)

@@ -1,12 +1,11 @@
-from BasicCollection import BasicCollection
-from TranslationOperation import TranslationOperation
+from semantic_heterogeneous_database import BasicCollection,TranslationOperation
 from datetime import datetime
 import os
 import time
 
 
 
-myCollection = BasicCollection('interscity', 'collectionTest')     
+#myCollection = BasicCollection('interscity', 'collectionTest')     
 # myCollection.insert_one('{"country":"A", "city":"Newly Created City"}',datetime(2000,12,31))        
 # myCollection.execute_operation('translation',datetime(2003,5,26), {'fieldName':'city', 'oldValue':'Old Created City', 'newValue':'Newly Created City'})        
 
@@ -30,13 +29,13 @@ myCollection = BasicCollection('interscity', 'collectionTest')
 # testeQuery = myCollection.find_many({'cidade' : 'Berlim'})
 # myCollection.pretty_print(testeQuery)
 
-#myCollection = BasicCollection('IBGE', 'estimativa_populacional')     
+myCollection = BasicCollection('IBGE', 'estimativa_populacional')     
 # translationOperation = TranslationOperation(myCollection)
 
 #startTime = time.time()
-#myCollection.insert_many_by_csv(os.path.join(os.path.dirname(__file__),'IBGE_Population/Estimativa_Populacao.csv'), 'RefDate')
+myCollection.insert_many_by_csv(os.path.join(os.path.dirname(__file__),'IBGE_Population/Estimativa_Populacao.csv'), 'RefDate')
 
-#executionTime = (time.time() - startTime)
+#executionTime = (time.time() - startTim e)
 #print('Execution time for insertion: ' + str(executionTime))
 #myCollection.execute_operation('translation',datetime(2004,6,6),{'fieldName':'Municipio', 'oldValue':'Piçarras', 'newValue':'Balneário Piçarras'})
 #myCollection.execute_many_operations_by_csv(os.path.join(os.path.dirname(__file__), 'IBGE_NameChanges/IBGE_NameChanges.csv'), 'type', 'RefDate')

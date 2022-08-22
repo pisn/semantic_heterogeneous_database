@@ -1,6 +1,7 @@
 import pandas as pd
 from .SemanticOperation import SemanticOperation
 from bson.objectid import ObjectId
+import numpy as np
 from pymongo import MongoClient, ASCENDING,DESCENDING
 from datetime import datetime
 import json
@@ -26,7 +27,7 @@ class Collection:
            
             first_version = {
                 "current_version":1,
-                "version_valid_from":datetime(1,1,1),
+                "version_valid_from":datetime(1700,1,1),
                 "previous_version":None, 
                 "previous_operation":None,
                 "version_number":0, 
@@ -92,15 +93,34 @@ class Collection:
 
         """
         df = pd.read_csv(FilePath, delimiter=Delimiter)
+        df[ValidFromField] = pd.to_datetime(df[ValidFromField], format=ValidFromDateFormat)
 
-        chunks = df.groupby([ValidFromField])
+        self.insert_many_by_dataframe(df, ValidFromField)
+    
+    def insert_many_by_dataframe(self, dataframe, ValidFromField):        
+        all_versions = self.collection_versions.find(projection=['version_valid_from'])
+        dates = pd.DataFrame(all_versions).sort_values(by='version_valid_from')
+        dates = dates.append([{'version_valid_from':datetime(2200,12,31)}])
+        dates= dates.reset_index(drop=True)
 
-        for versionValidFrom, group in chunks:
-            versionValidFrom = datetime.strptime(versionValidFrom, ValidFromDateFormat)
+        dates_1= dates.copy().reindex(index=np.roll(dates.index,-1))
+        dates_1= dates_1.reset_index(drop=True)
+        dates_guide = pd.concat([dates['version_valid_from'],dates_1['version_valid_from']], axis=1).set_axis(['start','end'], axis=1)
+
+        r = dataframe.merge(dates_guide, how='cross')
+        r[ValidFromField] = pd.to_datetime(r[ValidFromField])
+        r['start'] = pd.to_datetime(r['start'])
+        r['end'] = pd.to_datetime(r['end'])
+        r = r.loc[(r['start']<= r[ValidFromField]) & (r['end'] > r[ValidFromField])]
+
+        chunks = r.groupby(['start'])
+
+        for versionValidFrom, group in chunks:            
             versions = self.collection_versions.find({'version_valid_from':{'$lte' : versionValidFrom}}).sort('version_valid_from',DESCENDING)
             version = next(versions, None)
 
-            self.__insert_many_by_version(group.drop(ValidFromField, 1), version['version_number'], versionValidFrom)        
+            self.__insert_many_by_version(group.drop('start', 1).drop('end',1), version['version_number'], versionValidFrom)        
+
 
     def __insert_many_by_version(self, Group: pd.DataFrame, VersionNumber:int, ValidFromDate:datetime):
 

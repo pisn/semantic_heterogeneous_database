@@ -1,3 +1,4 @@
+from ensurepip import version
 from semantic_heterogeneous_database import BasicCollection
 from datetime import datetime
 import random
@@ -5,12 +6,18 @@ import string
 import json
 
 
+### This class first randomically generates the documents to be inserted, and the semantic operations for the database
+### Insertion is only executed later. This way, performance tests can be executed without any delay caused by the generation
+
 class DatabaseGenerator:
     FIELD_TYPES = ['int', 'float', 'datetime','string']
     OPERATION_TYPE = ['grouping', 'translation']
 
     def __init__(self, host='localhost'):
-        self.host = host        
+        self.host = host     
+        self.operations = list() ## List to store randomly generated operations
+        self.records = list()
+        self.versions_dates = list()
 
     def __generate_field_domain(self, field_type, number_of_values_in_domain):        
         return_list = list()
@@ -31,17 +38,16 @@ class DatabaseGenerator:
     ## Pensar depois em uma distribuição para o número de campos ao inves de ser fixo
     #  alem de um numero delimitado de valores possiveis para os campos
     def __generate_record(self):
-        new_record = {}
-        value = 0
-
-        valid_from_date = datetime.fromordinal(random.randint(365*2000, 365*2100))
+        new_record = {}                
 
         for field in self.fields:
             new_record[field[0]] = random.choice(self.field_domain[field[0]])            
+        
+        new_record['valid_from_date']=datetime.fromordinal(random.randint(365*2000, 365*2100))
 
-        self.collection.insert_one(json.dumps(new_record), valid_from_date)
+        self.records.append(new_record)        
 
-    def __generate_version(self):
+    def generate_version(self):
         version_date = datetime.fromordinal(random.randint(365*2000, 365*2100))
         operation_type = random.choice(DatabaseGenerator.OPERATION_TYPE)
         arguments = None
@@ -74,8 +80,8 @@ class DatabaseGenerator:
                 'newValue' : newValue
             }
 
-        
-        self.collection.execute_operation(operation_type,version_date, arguments)
+        self.versions_dates.append(version_date)
+        self.operations.append((operation_type, version_date, arguments))       
 
 
     def generate(self, number_of_records, number_of_versions, number_of_fields, number_of_values_in_domain):
@@ -97,11 +103,13 @@ class DatabaseGenerator:
         
         self.collection = BasicCollection(self.database_name, self.collection_name, self.host)
 
-        for i in range(number_of_records):
-            self.__generate_record()
-
+        self.versions_dates.append(datetime(1700,1,1))
+             
         for i in range(number_of_versions-1):
-            self.__generate_version()
+            self.generate_version()  
+
+        for i in range(number_of_records):
+            self.__generate_record()        
 
 
 # import time
