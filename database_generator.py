@@ -111,6 +111,10 @@ class DatabaseGenerator:
         for i in range(number_of_records):
             self.__generate_record()        
 
+    def destroy(self):
+        self.collection.collection.client.drop_database(self.collection.collection.database_name)
+    
+
 
 # import time
 # #from database_generator import DatabaseGenerator
