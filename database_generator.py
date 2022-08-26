@@ -37,7 +37,7 @@ class DatabaseGenerator:
 
     ## Pensar depois em uma distribuição para o número de campos ao inves de ser fixo
     #  alem de um numero delimitado de valores possiveis para os campos
-    def __generate_record(self):
+    def generate_record(self):
         new_record = {}                
 
         for field in self.fields:
@@ -45,7 +45,8 @@ class DatabaseGenerator:
         
         new_record['valid_from_date']=datetime.fromordinal(random.randint(365*2000, 365*2100))
 
-        self.records.append(new_record)        
+        self.records.append(new_record)  
+        return new_record      
 
     def generate_version(self):
         version_date = datetime.fromordinal(random.randint(365*2000, 365*2100))
@@ -109,7 +110,7 @@ class DatabaseGenerator:
             self.generate_version()  
 
         for i in range(number_of_records):
-            self.__generate_record()        
+            self.generate_record()        
 
     def destroy(self):
         self.collection.collection.client.drop_database(self.collection.collection.database_name)
