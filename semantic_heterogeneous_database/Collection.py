@@ -363,7 +363,9 @@ class Collection:
                     raise Exception(f"Operation type not supported: {nextOperationType}")
 
                 semanticOperation = self.semantic_operations[nextOperationType]
-                semanticOperation.evolute(record, versionRegister['next_version'])            
+                semanticOperation.evolute(record, versionRegister['next_version'])  
+
+                lastVersion = versionRegister['next_version']          
         
         for record in to_translate_down:
             firstVersion = record['_first_processed_version']
@@ -380,7 +382,9 @@ class Collection:
                     raise Exception(f"Operation type not supported: {previousOperationType}")
 
                 semanticOperation = self.semantic_operations[previousOperationType]
-                semanticOperation.evolute(record, versionRegister['previous_version'])            
+                semanticOperation.evolute(record, versionRegister['previous_version'])       
+
+                firstVersion = versionRegister['previous_version']     
             
 
         Query['_min_version_number'] = {'$lte' : VersionNumber} ##Retornando registros traduzidos. 
