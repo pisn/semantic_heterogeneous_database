@@ -1,3 +1,4 @@
+import time
 import pandas as pd
 from .SemanticOperation import SemanticOperation
 from bson.objectid import ObjectId
@@ -50,12 +51,16 @@ class Collection:
             valid_from_date(): date of when the register becomes valid. This is important in the treatment of semantic changes along time
         
         """        
+        start = time.time()
         versions = self.collection_versions.find({'version_valid_from':{'$lte' : ValidFromDate}}).sort('version_valid_from',DESCENDING)
         version = next(versions, None)
-        
+        end = time.time()
+        print('versions read: ' + str(end-start))
+
         self.__insert_one_by_version(JsonString, version['version_number'], ValidFromDate)
 
     def __insert_one_by_version(self, JsonString, VersionNumber, ValidFromDate:datetime):
+        start = time.time()
         o = json.loads(JsonString)                
         o['_original_version']=VersionNumber           
         o['_first_processed_version'] = VersionNumber
@@ -63,7 +68,11 @@ class Collection:
         o['_valid_from'] = ValidFromDate        
 
         insertedDocument = self.collection.insert_one(o)        
+        end = time.time()
 
+        print('Raw Insertion:' + str(end-start))
+
+        start = time.time()
         p = json.loads(JsonString)
         p['_min_version_number'] = VersionNumber
         p['_max_version_number'] = VersionNumber
@@ -72,15 +81,22 @@ class Collection:
         p['_valid_from'] = ValidFromDate
         p['_evoluted'] = False
         p['_evolution_list'] = []
+        
 
         self.collection_processed.insert_one(p)
+        end = time.time()        
+        
+        print('Processed Insertion: ' + str(end - start))
 
+        start = time.time()
         for field in o:
             if not field.startswith('_'):
                 updateResult = self.collection_columns.update_one({'field_name': field}, {'$set' : {'field_name' : field}, '$push' : {'documents' : insertedDocument.inserted_id}}, upsert=True)
                 
                 if(updateResult.upserted_id != None):
                     self.collection_columns.update_one({'_id':updateResult.upserted_id},{'$set' : {'first_edit_version' : VersionNumber ,'last_edit_version': VersionNumber}})   
+        end = time.time()
+        print('Fields Loop:' + str(end - start))
 
     def insert_many_by_csv(self, FilePath, ValidFromField, ValidFromDateFormat='%Y-%m-%d', Delimiter=','):
         """ Insert many recorDs in the collection using a csv file. 
