@@ -1,3 +1,4 @@
+from distutils.version import Version
 import time
 import pandas as pd
 from .SemanticOperation import SemanticOperation
@@ -39,6 +40,13 @@ class Collection:
         else:
             self.current_version = self.current_version['version_number']
 
+        ## Loading columns collection in memory
+
+        fields = self.collection_columns.find({})
+        self.fields = dict([(col['field_name'], (col['first_edit_version'], col['last_edit_version'])) for col in fields])
+
+        
+
     def register_operation(self, OperationKey, SemanticOperationClass):
         self.semantic_operations[OperationKey] = SemanticOperationClass
 
@@ -51,16 +59,13 @@ class Collection:
             valid_from_date(): date of when the register becomes valid. This is important in the treatment of semantic changes along time
         
         """        
-        start = time.time()
+        
         versions = self.collection_versions.find({'version_valid_from':{'$lte' : ValidFromDate}}).sort('version_valid_from',DESCENDING)
-        version = next(versions, None)
-        end = time.time()
-        print('versions read: ' + str(end-start))
+        version = next(versions, None)               
 
         self.__insert_one_by_version(JsonString, version['version_number'], ValidFromDate)
 
-    def __insert_one_by_version(self, JsonString, VersionNumber, ValidFromDate:datetime):
-        start = time.time()
+    def __insert_one_by_version(self, JsonString, VersionNumber, ValidFromDate:datetime):        
         o = json.loads(JsonString)                
         o['_original_version']=VersionNumber           
         o['_first_processed_version'] = VersionNumber
@@ -68,11 +73,7 @@ class Collection:
         o['_valid_from'] = ValidFromDate        
 
         insertedDocument = self.collection.insert_one(o)        
-        end = time.time()
 
-        print('Raw Insertion:' + str(end-start))
-
-        start = time.time()
         p = json.loads(JsonString)
         p['_min_version_number'] = VersionNumber
         p['_max_version_number'] = VersionNumber
@@ -84,19 +85,18 @@ class Collection:
         
 
         self.collection_processed.insert_one(p)
-        end = time.time()        
-        
-        print('Processed Insertion: ' + str(end - start))
 
-        start = time.time()
+        new_fields = list()
         for field in o:
-            if not field.startswith('_'):
-                updateResult = self.collection_columns.update_one({'field_name': field}, {'$set' : {'field_name' : field}, '$push' : {'documents' : insertedDocument.inserted_id}}, upsert=True)
-                
-                if(updateResult.upserted_id != None):
-                    self.collection_columns.update_one({'_id':updateResult.upserted_id},{'$set' : {'first_edit_version' : VersionNumber ,'last_edit_version': VersionNumber}})   
-        end = time.time()
-        print('Fields Loop:' + str(end - start))
+            if not field.startswith('_'):                
+                if field not in self.fields:
+                    new_field = {'field_name': field, 'first_edit_version': VersionNumber, 'last_edit_version': VersionNumber}                
+                    new_fields.append(new_field)
+                    self.fields[field] = (VersionNumber, VersionNumber)
+
+        if len(new_fields) > 0:
+            self.collection_columns.insert_many(new_fields)
+        
 
     def insert_many_by_csv(self, FilePath, ValidFromField, ValidFromDateFormat='%Y-%m-%d', Delimiter=','):
         """ Insert many recorDs in the collection using a csv file. 
@@ -160,12 +160,18 @@ class Collection:
         
         self.collection_processed.insert_many(processed_group.to_dict('records'))
 
+        new_fields = list()
         for field in Group.columns:
             if not field.startswith('_'):
-                column_register = self.collection_columns.find_one({'field_name': field})
+                if field not in self.fields:
+                    new_field = {'field_name': field, 'first_edit_version': VersionNumber, 'last_edit_version': VersionNumber}                
+                    new_fields.append(new_field)
+                    self.fields[field] = (VersionNumber, VersionNumber)
 
-                if(column_register == None):
-                    self.collection_columns.insert_one({'field_name':field, 'first_edit_version' : VersionNumber ,'last_edit_version': VersionNumber})           
+        if len(new_fields) > 0:
+            self.collection_columns.insert_many(new_fields)
+
+        
     
     def __process_query(self,QueryString):
         forward = self.__process_query_forward(QueryString)
@@ -343,13 +349,13 @@ class Collection:
                 #     to_process.extend(query[field])
                 continue                   
 
-            fieldRegister = self.collection_columns.find_one({'field_name':field})
+            fieldRegister = self.fields.get(field, None)
 
             if fieldRegister == None:
                 raise 'Field not found in collection: ' + field
             
-            lastFieldVersion = int(fieldRegister['last_edit_version'])
-            firstFieldVersion = int(fieldRegister['first_edit_version'])
+            firstFieldVersion = int(fieldRegister[0])
+            lastFieldVersion = int(fieldRegister[1])            
 
             if VersionNumber > lastFieldVersion and lastFieldVersion > max_version_number:
                 max_version_number = lastFieldVersion
