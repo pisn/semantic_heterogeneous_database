@@ -40,6 +40,11 @@ class Collection:
         else:
             self.current_version = self.current_version['version_number']
 
+        ## Create indexes. The operation is idempotent. Nothing will be done if the index is already there
+
+        self.collection.create_index([('_first_processed_version',ASCENDING)])
+        self.collection.create_index([('_last_processed_version',ASCENDING)])        
+
         ## Loading columns collection in memory
 
         fields = self.collection_columns.find({})
@@ -305,8 +310,16 @@ class Collection:
         Returns: a cursor for the records returned by the query
 
         """
+        start = time.time()
         finalQuery = self.__process_query(QueryString)                          
-        return self.__query_specific(finalQuery)     
+        end = time.time()
+        print('Query processing:' + str(end-start))       
+
+        start = time.time()
+        r = self.__query_specific(finalQuery)     
+        end = time.time()
+        print('Query results:' + str(end-start))
+        return r
 
     def __query_specific(self, Query, VersionNumber=None, isCount=False):
         #Eu preciso depois permitir que seja o tempo da versao, nao o numero
@@ -323,6 +336,7 @@ class Collection:
         to_process = []
         to_process.append(Query) 
         
+        start = time.time()
         while len(to_process) > 0:
             field = to_process.pop()
 
@@ -362,14 +376,22 @@ class Collection:
 
             elif VersionNumber < firstFieldVersion and firstFieldVersion < min_version_number:
                 min_version_number = firstFieldVersion
+        
+        end = time.time()
+        print('Find out version:' + str(end-start))
 
         ###Vou assumir por enquanto que estou sempre consultando a ultima versao, e que portanto sempre vou evoluir. Mas pensar no caso de que seja necessário um retrocesso
         VersionNumber = max_version_number
 
         ###Obtaining records which have not been translated yet to the target version and translate them
+        start = time.time()
+    
         to_translate_up = self.collection.find({'_last_processed_version' : {'$lt' : VersionNumber}})
         to_translate_down = self.collection.find({'_first_processed_version' : {'$gt' : VersionNumber}})
-
+        to_translate_up = list(to_translate_up)
+        end = time.time()
+        print('Query in processed versions time:' + str(end-start))
+        print('To translate up len:' + str(len(to_translate_up)))
         for record in to_translate_up:
             lastVersion = record['_last_processed_version']
             while lastVersion < VersionNumber:
@@ -387,8 +409,11 @@ class Collection:
                 semanticOperation = self.semantic_operations[nextOperationType]
                 semanticOperation.evolute(record, versionRegister['next_version'])  
 
-                lastVersion = versionRegister['next_version']          
+                lastVersion = versionRegister['next_version'] 
+        end = time.time()
+        print('Evolution up:' + str(end-start))         
         
+        start = time.time()
         for record in to_translate_down:
             firstVersion = record['_first_processed_version']
             while firstVersion > VersionNumber:
@@ -407,7 +432,9 @@ class Collection:
                 semanticOperation.evolute(record, versionRegister['previous_version'])       
 
                 firstVersion = versionRegister['previous_version']     
-            
+        
+        end = time.time()
+        print('Evolution down:' + str(end-start))
 
         Query['_min_version_number'] = {'$lte' : VersionNumber} ##Retornando registros traduzidos. 
         Query['_max_version_number'] = {'$gte' : VersionNumber} ##Retornando registros traduzidos. 
