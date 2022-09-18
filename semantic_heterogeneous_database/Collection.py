@@ -56,21 +56,22 @@ class Collection:
         self.semantic_operations[OperationKey] = SemanticOperationClass
 
 
-    def insert_one(self, JsonString, ValidFromDate:datetime):
+    def insert_one(self, JsonString, ValidFromDate:datetime, LazyInsertion=True):
         """ Insert one documet in the collection.
 
         Args:
             JsonString(): string of the json representation of the document being inserted.
             valid_from_date(): date of when the register becomes valid. This is important in the treatment of semantic changes along time
         
-        """        
+        """               
         
         versions = self.collection_versions.find({'version_valid_from':{'$lte' : ValidFromDate}}).sort('version_valid_from',DESCENDING)
-        version = next(versions, None)               
+        version = next(versions, None)                       
+        
+        self.__insert_one_by_version(JsonString, version['version_number'], ValidFromDate, LazyInsertion)                
 
-        self.__insert_one_by_version(JsonString, version['version_number'], ValidFromDate)
 
-    def __insert_one_by_version(self, JsonString, VersionNumber, ValidFromDate:datetime):        
+    def __insert_one_by_version(self, JsonString, VersionNumber, ValidFromDate:datetime, LazyInsertion):        
         o = json.loads(JsonString)                
         o['_original_version']=VersionNumber           
         o['_first_processed_version'] = VersionNumber
@@ -89,7 +90,7 @@ class Collection:
         p['_evolution_list'] = []
         
 
-        self.collection_processed.insert_one(p)
+        record = self.collection_processed.insert_one(p)
 
         new_fields = list()
         for field in o:
@@ -101,6 +102,9 @@ class Collection:
 
         if len(new_fields) > 0:
             self.collection_columns.insert_many(new_fields)
+
+        if not LazyInsertion:
+            self.find_many({'_id':record.inserted_id})
         
 
     def insert_many_by_csv(self, FilePath, ValidFromField, ValidFromDateFormat='%Y-%m-%d', Delimiter=','):
@@ -313,12 +317,12 @@ class Collection:
         start = time.time()
         finalQuery = self.__process_query(QueryString)                          
         end = time.time()
-        print('Query processing:' + str(end-start))       
+        #print('Query processing:' + str(end-start))       
 
         start = time.time()
         r = self.__query_specific(finalQuery)     
         end = time.time()
-        print('Query results:' + str(end-start))
+        #print('Query results:' + str(end-start))
         return r
 
     def __query_specific(self, Query, VersionNumber=None, isCount=False):
@@ -378,7 +382,7 @@ class Collection:
                 min_version_number = firstFieldVersion
         
         end = time.time()
-        print('Find out version:' + str(end-start))
+        #print('Find out version:' + str(end-start))
 
         ###Vou assumir por enquanto que estou sempre consultando a ultima versao, e que portanto sempre vou evoluir. Mas pensar no caso de que seja necessário um retrocesso
         VersionNumber = max_version_number
@@ -390,8 +394,8 @@ class Collection:
         to_translate_down = self.collection.find({'_first_processed_version' : {'$gt' : VersionNumber}})
         to_translate_up = list(to_translate_up)
         end = time.time()
-        print('Query in processed versions time:' + str(end-start))
-        print('To translate up len:' + str(len(to_translate_up)))
+        #print('Query in processed versions time:' + str(end-start))
+        #print('To translate up len:' + str(len(to_translate_up)))
         for record in to_translate_up:
             lastVersion = record['_last_processed_version']
             while lastVersion < VersionNumber:
@@ -411,7 +415,7 @@ class Collection:
 
                 lastVersion = versionRegister['next_version'] 
         end = time.time()
-        print('Evolution up:' + str(end-start))         
+        #print('Evolution up:' + str(end-start))         
         
         start = time.time()
         for record in to_translate_down:
@@ -434,7 +438,7 @@ class Collection:
                 firstVersion = versionRegister['previous_version']     
         
         end = time.time()
-        print('Evolution down:' + str(end-start))
+        #print('Evolution down:' + str(end-start))
 
         Query['_min_version_number'] = {'$lte' : VersionNumber} ##Retornando registros traduzidos. 
         Query['_max_version_number'] = {'$gte' : VersionNumber} ##Retornando registros traduzidos. 

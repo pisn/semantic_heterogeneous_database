@@ -14,8 +14,8 @@ class BasicCollection:
         self.collection.register_operation('ungrouping', UngroupingOperation(self))
 
    
-    def insert_one(self, JsonString, ValidFromDate:datetime):
-        self.collection.insert_one(JsonString, ValidFromDate)
+    def insert_one(self, JsonString, ValidFromDate:datetime, LazyInsertion=True):
+        self.collection.insert_one(JsonString, ValidFromDate, LazyInsertion)
 
     def insert_many_by_dataframe(self, dataframe, ValidFromField):
         self.collection.insert_many_by_dataframe(dataframe, ValidFromField)
