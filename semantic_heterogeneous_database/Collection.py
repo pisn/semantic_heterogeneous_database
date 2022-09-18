@@ -314,14 +314,14 @@ class Collection:
         Returns: a cursor for the records returned by the query
 
         """
-        start = time.time()
+        #start = time.time()
         finalQuery = self.__process_query(QueryString)                          
-        end = time.time()
+        #end = time.time()
         #print('Query processing:' + str(end-start))       
 
-        start = time.time()
+        #start = time.time()
         r = self.__query_specific(finalQuery)     
-        end = time.time()
+        #end = time.time()
         #print('Query results:' + str(end-start))
         return r
 
@@ -387,19 +387,18 @@ class Collection:
         ###Vou assumir por enquanto que estou sempre consultando a ultima versao, e que portanto sempre vou evoluir. Mas pensar no caso de que seja necessário um retrocesso
         VersionNumber = max_version_number
 
-        ###Obtaining records which have not been translated yet to the target version and translate them
-        start = time.time()
+        ###Obtaining records which have not been translated yet to the target version and translate them        
     
         to_translate_up = self.collection.find({'_last_processed_version' : {'$lt' : VersionNumber}})
         to_translate_down = self.collection.find({'_first_processed_version' : {'$gt' : VersionNumber}})
-        to_translate_up = list(to_translate_up)
-        end = time.time()
-        #print('Query in processed versions time:' + str(end-start))
-        #print('To translate up len:' + str(len(to_translate_up)))
+        to_translate_up = list(to_translate_up)        
+        
         for record in to_translate_up:
             lastVersion = record['_last_processed_version']
             while lastVersion < VersionNumber:
+                start = time.time()        
                 versionRegister = self.collection_versions.find_one({'version_number':lastVersion})
+                
 
                 if versionRegister == None:
                     raise Exception('Version register not found for ' + str(lastVersion))
@@ -410,8 +409,14 @@ class Collection:
                 if nextOperationType not in self.semantic_operations:
                     raise Exception(f"Operation type not supported: {nextOperationType}")
 
+                end = time.time()
+                print('Query collection versions:' + str(end-start))
+
+                start = time.time()
                 semanticOperation = self.semantic_operations[nextOperationType]
                 semanticOperation.evolute(record, versionRegister['next_version'])  
+                end = time.time()
+                print('Evolution:' + str(end-start))
 
                 lastVersion = versionRegister['next_version'] 
         end = time.time()
