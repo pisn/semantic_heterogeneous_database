@@ -5,6 +5,7 @@ from .SemanticOperation import SemanticOperation
 from bson.objectid import ObjectId
 import numpy as np
 from pymongo import MongoClient, ASCENDING,DESCENDING
+from pandas.io.json import json_normalize
 from datetime import datetime
 import json
 import csv
@@ -50,6 +51,11 @@ class Collection:
         fields = self.collection_columns.find({})
         self.fields = dict([(col['field_name'], (col['first_edit_version'], col['last_edit_version'])) for col in fields])
 
+        ## Loading semantic operations in memory
+
+        normalized = json_normalize(self.collection_versions.find_many())
+        self.versions_df = pd.DataFrame(normalized)
+
         
 
     def register_operation(self, OperationKey, SemanticOperationClass):
@@ -91,6 +97,13 @@ class Collection:
         
 
         record = self.collection_processed.insert_one(p)
+
+        ##Ideia é checar aqui se pode ter tido alterações semanticas para cada tipo,
+        #dado que parametros sao diferentes. Ai splitar ja os processados e talvez ate processar 
+        #na hora. Assim nao preciso ficar checando na consulta mais. 
+        for operationType in self.semantic_operations:
+            self.semantic_operations[operationType].check_if_affected(p) 
+
 
         new_fields = list()
         for field in o:

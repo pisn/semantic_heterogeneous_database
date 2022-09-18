@@ -4,8 +4,9 @@ from importlib_metadata import version
 from .SemanticOperation import SemanticOperation
 import datetime
 from argparse import ArgumentError
+import pandas as pd
 from pymongo import MongoClient, ASCENDING, DESCENDING
-
+from pandas.io.json import json_normalize
 class TranslationOperation:
     def __init__(self, Collection_):
         self.collection = Collection_.collection
@@ -165,8 +166,9 @@ class TranslationOperation:
         elif column['first_edit_version'] < new_version_number:
             self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'first_edit_version' : new_version_number}})        
 
-        self.collection.collection_versions.insert_one(new_version)    
-
+        self.collection.collection_versions.insert_one(new_version)            
+        normalized = json_normalize(new_version)
+        self.collection.versions_df = pd.concat([self.collection.versions_df, pd.DataFrame(normalized)], ignore_index=True, axis=0)
 
         ##Update value of processed versions
 
