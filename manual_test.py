@@ -5,13 +5,14 @@ import time
 
 
 
-#myCollection = BasicCollection('interscity', 'collectionTest')     
-# myCollection.insert_one('{"country":"A", "city":"Newly Created City"}',datetime(2000,12,31))        
-# myCollection.execute_operation('translation',datetime(2003,5,26), {'fieldName':'city', 'oldValue':'Old Created City', 'newValue':'Newly Created City'})        
+myCollection = BasicCollection('interscity', 'collectionTest')     
+myCollection.insert_one('{"country":"A", "city":"Newly Created City"}',datetime(2000,12,31))        
+myCollection.execute_operation('translation',datetime(2003,5,26), {'fieldName':'city', 'oldValue':'Old Created City', 'newValue':'Newly Created City'})        
+myCollection.insert_one('{"country":"A", "city":"Old Created City"}',datetime(2017,12,31))        
 
 # q = myCollection.find_many({'city':'Old Created City'})                
 # myCollection.pretty_print(q)
-# myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim"}', datetime(2001,1,1))
+#myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim"}', datetime(2001,1,1))
 # myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim Ocidental"}', datetime(1947,1,1))
 # myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim Oriental"}', datetime(1947,1,1))
 # myCollection.insert_one('{"pais": "Brasil", "cidade":"Cuiabá"}', datetime(2002,1,1))
@@ -29,11 +30,11 @@ import time
 # testeQuery = myCollection.find_many({'cidade' : 'Berlim'})
 # myCollection.pretty_print(testeQuery)
 
-myCollection = BasicCollection('IBGE', 'estimativa_populacional')     
+#myCollection = BasicCollection('IBGE', 'estimativa_populacional')     
 # translationOperation = TranslationOperation(myCollection)
 
 #startTime = time.time()
-myCollection.insert_many_by_csv(os.path.join(os.path.dirname(__file__),'IBGE_Population/Estimativa_Populacao.csv'), 'RefDate')
+#myCollection.insert_many_by_csv(os.path.join(os.path.dirname(__file__),'IBGE_Population/Estimativa_Populacao.csv'), 'RefDate')
 
 #executionTime = (time.time() - startTim e)
 #print('Execution time for insertion: ' + str(executionTime))

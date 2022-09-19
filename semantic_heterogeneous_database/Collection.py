@@ -53,7 +53,7 @@ class Collection:
 
         ## Loading semantic operations in memory
 
-        normalized = json_normalize(self.collection_versions.find_many())
+        normalized = json_normalize(self.collection_versions.find())
         self.versions_df = pd.DataFrame(normalized)
 
         
@@ -101,8 +101,10 @@ class Collection:
         ##Ideia é checar aqui se pode ter tido alterações semanticas para cada tipo,
         #dado que parametros sao diferentes. Ai splitar ja os processados e talvez ate processar 
         #na hora. Assim nao preciso ficar checando na consulta mais. 
+        affected_versions = list()
         for operationType in self.semantic_operations:
-            self.semantic_operations[operationType].check_if_affected(p) 
+            if operationType in ['grouping','translation']: ##somente para teste, depois eu implemento no desagrupamento também
+                affected_versions.extend(self.semantic_operations[operationType].check_if_affected(p)) 
 
 
         new_fields = list()

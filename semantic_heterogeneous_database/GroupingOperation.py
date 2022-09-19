@@ -1,6 +1,9 @@
+from ensurepip import version
 import sys
 from .SemanticOperation import SemanticOperation
 import datetime
+import pandas as pd
+from pandas.io.json import json_normalize
 from argparse import ArgumentError
 from pymongo import MongoClient, ASCENDING, DESCENDING
 
@@ -163,7 +166,9 @@ class GroupingOperation:
         elif column['first_edit_version'] < new_version_number:
             self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'first_edit_version' : new_version_number}})        
 
-        self.collection.collection_versions.insert_one(new_version)    
+        self.collection.collection_versions.insert_one(new_version)          
+        normalized = json_normalize(new_version)
+        self.collection.versions_df = pd.concat([self.collection.versions_df, pd.DataFrame(normalized)], ignore_index=True, axis=0)   
 
 
         ##Update value of processed versions
@@ -233,6 +238,34 @@ class GroupingOperation:
                                         },
                                         {'$set':{'_first_processed_version' : new_version_number}})
 
+    def check_if_affected(self, Document):
+        versions_df = self.collection.versions_df
+        return_obj = set()
+        
+        if 'previous_operation.type' in versions_df.columns:
+            versions_df_p = versions_df.loc[versions_df['previous_operation.type'] == 'grouping']
+
+            if len(versions_df_p) > 0:
+                if {'previous_operation.type','previous_operation.field', 'previous_operation.from'}.issubset(versions_df.columns):  
+                    versions_df_p['field_value'] = versions_df_p.apply(lambda row: Document.get(row['previous_operation.field'],None), axis=1)
+                    versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] in versions_df_p['previous_operation.from']]
+                    
+                    if len(versions_df_p) > 0:
+                        return_obj.update(list(versions_df_p['version_number']))
+
+        if 'next_operation.type' in versions_df.columns:
+            versions_df_p = versions_df.loc[versions_df['next_operation.type'] == 'grouping']
+
+            if len(versions_df_p) > 0:
+                if {'next_operation.type','next_operation.field', 'next_operation.from'}.issubset(versions_df.columns):  
+                    versions_df_p['field_value'] = versions_df_p.apply(lambda row: Document.get(row['next_operation.field'], None), axis=1)
+                    versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] == versions_df_p['next_operation.from']]
+                    
+                    if len(versions_df_p) > 0:
+                        return_obj.update(list(versions_df_p['version_number']))
+        
+
+        return list(return_obj)
 
     def evolute(self, Document, TargetVersion):
         lastVersion = float(Document['_last_processed_version'])
