@@ -264,6 +264,22 @@ class TranslationOperation:
 
         return list(return_obj)
 
+    ## Function is executed when is already known the document suffered changes
+    def evolute_forward(self, Document, operation):        
+        if Document[operation['next_operation.field'][0]] != operation['next_operation.from'][0]:
+            raise BaseException('Operation does not change this record')
+        
+        Document[operation['next_operation.field'][0]] = operation['next_operation.to'][0]
+        return Document
+
+    ## Function is executed when is already known the document suffered changes
+    def evolute_backward(self, Document, operation):
+        if Document[operation['previous_operation.field']] != operation['previous_operation.from']:
+            raise BaseException('Operation does not change this record')
+        
+        Document[operation['previous_operation.field']] = operation['previous_operation.to']
+        return Document
+
 
     def evolute(self, Document, TargetVersion):
         lastVersion = float(Document['_last_processed_version'])

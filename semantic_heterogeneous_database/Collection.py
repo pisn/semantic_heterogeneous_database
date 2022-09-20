@@ -112,6 +112,7 @@ class Collection:
 
         affected_versions.sort()
         insertion_list = list()
+        original_processed_index = -1
 
         for i in range(0,len(affected_versions)-1, 2):
             po = p.copy()
@@ -121,6 +122,21 @@ class Collection:
             po['_min_version_number'] = float(a)
             po['_max_version_number'] = float(b)
             insertion_list.append(po)
+
+            if a <= VersionNumber and b >= VersionNumber:
+                original_processed_index = len(insertion_list) - 1
+        
+        for i in range(original_processed_index+1, len(insertion_list)):
+            document = insertion_list[i]
+            operation = self.versions_df.loc[(self.versions_df['next_version'] == document['_min_version_number'])]
+
+            self.semantic_operations[operation['next_operation.type'][0]].evolute_forward(document, operation)
+
+        for i in range(-1,original_processed_index, -1):
+            document = insertion_list[i]
+            operation = self.versions_df.loc[(self.versions_df['previous_version'] == document['_max_version_number'])]
+
+            self.semantic_operations[operation['previous_operation.type'][0]].evolute_backward(document, operation)
         
         self.collection_processed.insert_many(insertion_list)
 
