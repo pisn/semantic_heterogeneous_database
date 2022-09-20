@@ -4,9 +4,7 @@ from importlib_metadata import version
 from .SemanticOperation import SemanticOperation
 import datetime
 from argparse import ArgumentError
-import pandas as pd
 from pymongo import MongoClient, ASCENDING, DESCENDING
-from pandas.io.json import json_normalize
 class TranslationOperation:
     def __init__(self, Collection_):
         self.collection = Collection_.collection
@@ -167,8 +165,8 @@ class TranslationOperation:
             self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'first_edit_version' : new_version_number}})        
 
         self.collection.collection_versions.insert_one(new_version)            
-        normalized = json_normalize(new_version)
-        self.collection.versions_df = pd.concat([self.collection.versions_df, pd.DataFrame(normalized)], ignore_index=True, axis=0)
+        
+        self.collection.update_versions()
 
         ##Update value of processed versions
 
@@ -249,7 +247,7 @@ class TranslationOperation:
                     versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] == versions_df_p['previous_operation.from']]
                     
                     if len(versions_df_p) > 0:
-                        return_obj.update(list(versions_df_p['version_number']))
+                        return_obj.update([float(versions_df_p['version_number']),float(versions_df_p['previous_version'])])
 
 
         if 'next_operation.type' in versions_df.columns:
@@ -261,7 +259,7 @@ class TranslationOperation:
                     versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] == versions_df_p['next_operation.from']]
                     
                     if len(versions_df_p) > 0:
-                        return_obj.update(list(versions_df_p['version_number']))
+                        return_obj.update([float(versions_df_p['version_number']),float(versions_df_p['next_version'])])
         
 
         return list(return_obj)

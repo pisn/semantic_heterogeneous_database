@@ -1,4 +1,5 @@
 from distutils.version import Version
+from re import A
 import time
 import pandas as pd
 from .SemanticOperation import SemanticOperation
@@ -51,18 +52,18 @@ class Collection:
         fields = self.collection_columns.find({})
         self.fields = dict([(col['field_name'], (col['first_edit_version'], col['last_edit_version'])) for col in fields])
 
-        ## Loading semantic operations in memory
-
+        ## Loading semantic operations in memory       
+        self.update_versions()
+        
+    def update_versions(self):
         normalized = json_normalize(self.collection_versions.find())
         self.versions_df = pd.DataFrame(normalized)
-
-        
 
     def register_operation(self, OperationKey, SemanticOperationClass):
         self.semantic_operations[OperationKey] = SemanticOperationClass
 
 
-    def insert_one(self, JsonString, ValidFromDate:datetime, LazyInsertion=True):
+    def insert_one(self, JsonString, ValidFromDate:datetime):
         """ Insert one documet in the collection.
 
         Args:
@@ -74,52 +75,66 @@ class Collection:
         versions = self.collection_versions.find({'version_valid_from':{'$lte' : ValidFromDate}}).sort('version_valid_from',DESCENDING)
         version = next(versions, None)                       
         
-        self.__insert_one_by_version(JsonString, version['version_number'], ValidFromDate, LazyInsertion)                
+        self.__insert_one_by_version(JsonString, version['version_number'], ValidFromDate)                
 
 
-    def __insert_one_by_version(self, JsonString, VersionNumber, ValidFromDate:datetime, LazyInsertion):        
+    def __insert_one_by_version(self, JsonString, VersionNumber, ValidFromDate:datetime):        
         o = json.loads(JsonString)                
         o['_original_version']=VersionNumber           
-        o['_first_processed_version'] = VersionNumber
-        o['_last_processed_version'] = VersionNumber
+        #o['_first_processed_version'] = VersionNumber ##Acho que vou acabar descontinuando esses campos se o check_affected der certo
+        #o['_last_processed_version'] = VersionNumber
         o['_valid_from'] = ValidFromDate        
 
         insertedDocument = self.collection.insert_one(o)        
 
         p = json.loads(JsonString)
-        p['_min_version_number'] = VersionNumber
-        p['_max_version_number'] = VersionNumber
+        # p['_min_version_number'] = VersionNumber
+        # p['_max_version_number'] = VersionNumber
         p['_original_id'] = insertedDocument.inserted_id
         p['_original_version'] = VersionNumber
         p['_valid_from'] = ValidFromDate
         p['_evoluted'] = False
-        p['_evolution_list'] = []
+        p['_evolution_list'] = []    
         
-
-        record = self.collection_processed.insert_one(p)
 
         ##Ideia é checar aqui se pode ter tido alterações semanticas para cada tipo,
         #dado que parametros sao diferentes. Ai splitar ja os processados e talvez ate processar 
         #na hora. Assim nao preciso ficar checando na consulta mais. 
         affected_versions = list()
+        minVersion = float(self.versions_df['version_number'].min())
+        maxVersion = float(self.versions_df['version_number'].max())
+        affected_versions.append(minVersion)
+        affected_versions.append(maxVersion)
+
         for operationType in self.semantic_operations:
             if operationType in ['grouping','translation']: ##somente para teste, depois eu implemento no desagrupamento também
-                affected_versions.extend(self.semantic_operations[operationType].check_if_affected(p)) 
+                affected_versions.extend(self.semantic_operations[operationType].check_if_affected(p))                
+
+        affected_versions.sort()
+        insertion_list = list()
+
+        for i in range(0,len(affected_versions)-1, 2):
+            po = p.copy()
+            a = affected_versions[i]
+            b = affected_versions[i+1]
+
+            po['_min_version_number'] = float(a)
+            po['_max_version_number'] = float(b)
+            insertion_list.append(po)
+        
+        self.collection_processed.insert_many(insertion_list)
 
 
         new_fields = list()
         for field in o:
             if not field.startswith('_'):                
                 if field not in self.fields:
-                    new_field = {'field_name': field, 'first_edit_version': VersionNumber, 'last_edit_version': VersionNumber}                
+                    new_field = {'field_name': field, 'first_edit_version': minVersion, 'last_edit_version': maxVersion}                
                     new_fields.append(new_field)
-                    self.fields[field] = (VersionNumber, VersionNumber)
+                    self.fields[field] = (minVersion, maxVersion)
 
         if len(new_fields) > 0:
             self.collection_columns.insert_many(new_fields)
-
-        if not LazyInsertion:
-            self.find_many({'_id':record.inserted_id})
         
 
     def insert_many_by_csv(self, FilePath, ValidFromField, ValidFromDateFormat='%Y-%m-%d', Delimiter=','):
@@ -402,63 +417,62 @@ class Collection:
         ###Vou assumir por enquanto que estou sempre consultando a ultima versao, e que portanto sempre vou evoluir. Mas pensar no caso de que seja necessário um retrocesso
         VersionNumber = max_version_number
 
-        ###Obtaining records which have not been translated yet to the target version and translate them        
-    
-        to_translate_up = self.collection.find({'_last_processed_version' : {'$lt' : VersionNumber}})
-        to_translate_down = self.collection.find({'_first_processed_version' : {'$gt' : VersionNumber}})
-        to_translate_up = list(to_translate_up)        
+        ###Obtaining records which have not been translated yet to the target version and translate them                    
+        # to_translate_up = self.collection.find({'_last_processed_version' : {'$lt' : VersionNumber}})
+        # to_translate_down = self.collection.find({'_first_processed_version' : {'$gt' : VersionNumber}})
+        # to_translate_up = list(to_translate_up)        
         
-        for record in to_translate_up:
-            lastVersion = record['_last_processed_version']
-            while lastVersion < VersionNumber:
-                start = time.time()        
-                versionRegister = self.collection_versions.find_one({'version_number':lastVersion})
+        # for record in to_translate_up:
+        #     lastVersion = record['_last_processed_version']
+        #     while lastVersion < VersionNumber:
+        #         start = time.time()        
+        #         versionRegister = self.collection_versions.find_one({'version_number':lastVersion})
                 
 
-                if versionRegister == None:
-                    raise Exception('Version register not found for ' + str(lastVersion))
+        #         if versionRegister == None:
+        #             raise Exception('Version register not found for ' + str(lastVersion))
 
-                nextOperation = versionRegister['next_operation']
-                nextOperationType = nextOperation['type']
+        #         nextOperation = versionRegister['next_operation']
+        #         nextOperationType = nextOperation['type']
 
-                if nextOperationType not in self.semantic_operations:
-                    raise Exception(f"Operation type not supported: {nextOperationType}")
+        #         if nextOperationType not in self.semantic_operations:
+        #             raise Exception(f"Operation type not supported: {nextOperationType}")
 
-                end = time.time()
-                print('Query collection versions:' + str(end-start))
+        #         end = time.time()
+        #         print('Query collection versions:' + str(end-start))
 
-                start = time.time()
-                semanticOperation = self.semantic_operations[nextOperationType]
-                semanticOperation.evolute(record, versionRegister['next_version'])  
-                end = time.time()
-                print('Evolution:' + str(end-start))
+        #         start = time.time()
+        #         semanticOperation = self.semantic_operations[nextOperationType]
+        #         semanticOperation.evolute(record, versionRegister['next_version'])  
+        #         end = time.time()
+        #         print('Evolution:' + str(end-start))
 
-                lastVersion = versionRegister['next_version'] 
-        end = time.time()
-        #print('Evolution up:' + str(end-start))         
+        #         lastVersion = versionRegister['next_version'] 
+        # end = time.time()
+        # #print('Evolution up:' + str(end-start))         
         
-        start = time.time()
-        for record in to_translate_down:
-            firstVersion = record['_first_processed_version']
-            while firstVersion > VersionNumber:
-                versionRegister = self.collection_versions.find_one({'version_number':firstVersion})
+        # start = time.time()
+        # for record in to_translate_down:
+        #     firstVersion = record['_first_processed_version']
+        #     while firstVersion > VersionNumber:
+        #         versionRegister = self.collection_versions.find_one({'version_number':firstVersion})
 
-                if versionRegister == None:
-                    raise Exception('Version register not found for ' + str(firstVersion))
+        #         if versionRegister == None:
+        #             raise Exception('Version register not found for ' + str(firstVersion))
 
-                previousOperation = versionRegister['previous_operation']
-                previousOperationType = previousOperation['type']
+        #         previousOperation = versionRegister['previous_operation']
+        #         previousOperationType = previousOperation['type']
 
-                if previousOperationType not in self.semantic_operations:
-                    raise Exception(f"Operation type not supported: {previousOperationType}")
+        #         if previousOperationType not in self.semantic_operations:
+        #             raise Exception(f"Operation type not supported: {previousOperationType}")
 
-                semanticOperation = self.semantic_operations[previousOperationType]
-                semanticOperation.evolute(record, versionRegister['previous_version'])       
+        #         semanticOperation = self.semantic_operations[previousOperationType]
+        #         semanticOperation.evolute(record, versionRegister['previous_version'])       
 
-                firstVersion = versionRegister['previous_version']     
+        #         firstVersion = versionRegister['previous_version']     
         
-        end = time.time()
-        #print('Evolution down:' + str(end-start))
+        # end = time.time()
+        # #print('Evolution down:' + str(end-start))
 
         Query['_min_version_number'] = {'$lte' : VersionNumber} ##Retornando registros traduzidos. 
         Query['_max_version_number'] = {'$gte' : VersionNumber} ##Retornando registros traduzidos. 

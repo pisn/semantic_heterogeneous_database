@@ -2,8 +2,6 @@ from ensurepip import version
 import sys
 from .SemanticOperation import SemanticOperation
 import datetime
-import pandas as pd
-from pandas.io.json import json_normalize
 from argparse import ArgumentError
 from pymongo import MongoClient, ASCENDING, DESCENDING
 
@@ -167,8 +165,9 @@ class GroupingOperation:
             self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'first_edit_version' : new_version_number}})        
 
         self.collection.collection_versions.insert_one(new_version)          
-        normalized = json_normalize(new_version)
-        self.collection.versions_df = pd.concat([self.collection.versions_df, pd.DataFrame(normalized)], ignore_index=True, axis=0)   
+
+        self.collection.update_versions()
+        
 
 
         ##Update value of processed versions
@@ -251,7 +250,7 @@ class GroupingOperation:
                     versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] in versions_df_p['previous_operation.from']]
                     
                     if len(versions_df_p) > 0:
-                        return_obj.update(list(versions_df_p['version_number']))
+                        return_obj.update([float(versions_df_p['version_number']),float(versions_df_p['previous_version'])])
 
         if 'next_operation.type' in versions_df.columns:
             versions_df_p = versions_df.loc[versions_df['next_operation.type'] == 'grouping']
@@ -262,7 +261,7 @@ class GroupingOperation:
                     versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] == versions_df_p['next_operation.from']]
                     
                     if len(versions_df_p) > 0:
-                        return_obj.update(list(versions_df_p['version_number']))
+                        return_obj.update([float(versions_df_p['version_number']),float(versions_df_p['next_version'])])
         
 
         return list(return_obj)
