@@ -71,7 +71,8 @@ class Collection:
             valid_from_date(): date of when the register becomes valid. This is important in the treatment of semantic changes along time
         
         """               
-        
+        self.update_versions()
+
         versions = self.collection_versions.find({'version_valid_from':{'$lte' : ValidFromDate}}).sort('version_valid_from',DESCENDING)
         version = next(versions, None)                       
         
@@ -128,15 +129,18 @@ class Collection:
         
         for i in range(original_processed_index+1, len(insertion_list)):
             document = insertion_list[i]
+            document['_evolution_list'] = [VersionNumber]
             operation = self.versions_df.loc[(self.versions_df['next_version'] == document['_min_version_number'])]
 
-            self.semantic_operations[operation['next_operation.type'][0]].evolute_forward(document, operation)
+            self.semantic_operations[operation['next_operation.type'].values[0]].evolute_forward(document, operation)
 
         for i in range(-1,original_processed_index, -1):
             document = insertion_list[i]
+            document['_evolution_list'] = [VersionNumber]
+            
             operation = self.versions_df.loc[(self.versions_df['previous_version'] == document['_max_version_number'])]
 
-            self.semantic_operations[operation['previous_operation.type'][0]].evolute_backward(document, operation)
+            self.semantic_operations[operation['previous_operation.type'].values[0]].evolute_backward(document, operation)
         
         self.collection_processed.insert_many(insertion_list)
 

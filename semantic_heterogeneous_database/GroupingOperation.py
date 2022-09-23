@@ -241,16 +241,17 @@ class GroupingOperation:
         versions_df = self.collection.versions_df
         return_obj = set()
         
-        if 'previous_operation.type' in versions_df.columns:
-            versions_df_p = versions_df.loc[versions_df['previous_operation.type'] == 'grouping']
+        # Agrupamento nao pode andar nesse sentido
+        # if 'previous_operation.type' in versions_df.columns:
+        #     versions_df_p = versions_df.loc[versions_df['previous_operation.type'] == 'grouping']
 
-            if len(versions_df_p) > 0:
-                if {'previous_operation.type','previous_operation.field', 'previous_operation.from'}.issubset(versions_df.columns):  
-                    versions_df_p['field_value'] = versions_df_p.apply(lambda row: Document.get(row['previous_operation.field'],None), axis=1)
-                    versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] in versions_df_p['previous_operation.from']]
+        #     if len(versions_df_p) > 0:
+        #         if {'previous_operation.type','previous_operation.field', 'previous_operation.from'}.issubset(versions_df.columns):  
+        #             versions_df_p['field_value'] = versions_df_p.apply(lambda row: Document.get(row['previous_operation.field'],None), axis=1)
+        #             versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] in versions_df_p['previous_operation.from']]
                     
-                    if len(versions_df_p) > 0:
-                        return_obj.update([float(versions_df_p['version_number']),float(versions_df_p['previous_version'])])
+        #             if len(versions_df_p) > 0:
+        #                 return_obj.update([float(versions_df_p['version_number']),float(versions_df_p['previous_version'])])
 
         if 'next_operation.type' in versions_df.columns:
             versions_df_p = versions_df.loc[versions_df['next_operation.type'] == 'grouping']
@@ -265,6 +266,17 @@ class GroupingOperation:
         
 
         return list(return_obj)
+
+    ## Function is executed when is already known the document suffered changes
+    def evolute_forward(self, Document, operation):        
+        if Document[operation['next_operation.field'].values[0]] in operation['next_operation.from'].values[0]:
+            raise BaseException('Operation does not change this record')
+        
+        Document[operation['next_operation.field'].values[0]] = operation['next_operation.to'].values[0]
+        return Document
+
+    def evolute_backward(self, Document, operation):        
+        pass
 
     def evolute(self, Document, TargetVersion):
         lastVersion = float(Document['_last_processed_version'])

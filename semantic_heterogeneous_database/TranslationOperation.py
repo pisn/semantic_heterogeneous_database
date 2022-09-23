@@ -266,10 +266,10 @@ class TranslationOperation:
 
     ## Function is executed when is already known the document suffered changes
     def evolute_forward(self, Document, operation):        
-        if Document[operation['next_operation.field'][0]] != operation['next_operation.from'][0]:
+        if Document[operation['next_operation.field'].values[0]] != operation['next_operation.from'].values[0]:
             raise BaseException('Operation does not change this record')
         
-        Document[operation['next_operation.field'][0]] = operation['next_operation.to'][0]
+        Document[operation['next_operation.field'].values[0]] = operation['next_operation.to'].values[0]
         return Document
 
     ## Function is executed when is already known the document suffered changes
