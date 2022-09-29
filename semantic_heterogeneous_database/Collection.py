@@ -126,13 +126,17 @@ class Collection:
 
             if a <= VersionNumber and b >= VersionNumber:
                 original_processed_index = len(insertion_list) - 1
+
+        ## Depois que eu processar e gerar as novas versoes aqui, eu preciso reverificar se esses mesmos documentos nao batem em 
+        ## alguma alteração semantica. Pois podem cair em algum criterio JA DEPOIS do processamento de outra alteração
         
         for i in range(original_processed_index+1, len(insertion_list)):
             document = insertion_list[i]
             document['_evolution_list'] = [VersionNumber]
             operation = self.versions_df.loc[(self.versions_df['next_version'] == document['_min_version_number'])]
-
-            self.semantic_operations[operation['next_operation.type'].values[0]].evolute_forward(document, operation)
+            
+            new_document = self.semantic_operations[operation['next_operation.type'].values[0]].evolute_forward(document, operation)
+            insertion_list[i] = new_document
 
         for i in range(-1,original_processed_index, -1):
             document = insertion_list[i]
@@ -140,7 +144,8 @@ class Collection:
             
             operation = self.versions_df.loc[(self.versions_df['previous_version'] == document['_max_version_number'])]
 
-            self.semantic_operations[operation['previous_operation.type'].values[0]].evolute_backward(document, operation)
+            new_document = self.semantic_operations[operation['previous_operation.type'].values[0]].evolute_backward(document, operation)
+            insertion_list[i] = new_document
         
         self.collection_processed.insert_many(insertion_list)
 

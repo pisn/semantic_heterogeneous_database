@@ -262,7 +262,8 @@ class GroupingOperation:
                     versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] == versions_df_p['next_operation.from']]
                     
                     if len(versions_df_p) > 0:
-                        return_obj.update([float(versions_df_p['version_number']),float(versions_df_p['next_version'])])
+                        for ind,v in versions_df_p.iterrows():
+                            return_obj.update([float(v['version_number']),float(v['next_version'])])
         
 
         return list(return_obj)
@@ -270,10 +271,11 @@ class GroupingOperation:
     ## Function is executed when is already known the document suffered changes
     def evolute_forward(self, Document, operation):        
         if Document[operation['next_operation.field'].values[0]] in operation['next_operation.from'].values[0]:
-            raise BaseException('Operation does not change this record')
-        
-        Document[operation['next_operation.field'].values[0]] = operation['next_operation.to'].values[0]
-        return Document
+            Document = Document.copy()
+            Document[operation['next_operation.field'].values[0]] = operation['next_operation.to'].values[0]            
+            return Document
+        else:
+            return None
 
     def evolute_backward(self, Document, operation):        
         pass

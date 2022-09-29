@@ -239,7 +239,7 @@ class TranslationOperation:
         return_obj = set()
         
         if 'previous_operation.type' in versions_df.columns:
-            versions_df_p = versions_df.loc[versions_df['previous_operation.type'] == 'translation']
+            versions_df_p = versions_df.loc[(versions_df['previous_operation.type'] == 'translation') ]#& (versions_df['version_number'] <= Document['version_number'])] #Operacao precisa partir de versao igual ou inferior a atual
 
             if len(versions_df_p) > 0:
                 if {'previous_operation.type','previous_operation.field', 'previous_operation.from'}.issubset(versions_df.columns):  
@@ -247,11 +247,12 @@ class TranslationOperation:
                     versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] == versions_df_p['previous_operation.from']]
                     
                     if len(versions_df_p) > 0:
-                        return_obj.update([float(versions_df_p['version_number']),float(versions_df_p['previous_version'])])
+                        for ind,v in versions_df_p.iterrows():
+                            return_obj.update([float(v['version_number']),float(v['previous_version'])])
 
 
         if 'next_operation.type' in versions_df.columns:
-            versions_df_p = versions_df.loc[versions_df['next_operation.type'] == 'translation']
+            versions_df_p = versions_df.loc[(versions_df['next_operation.type'] == 'translation')]
 
             if len(versions_df_p) > 0:
                 if {'next_operation.type','next_operation.field', 'next_operation.from'}.issubset(versions_df.columns):  
@@ -259,26 +260,23 @@ class TranslationOperation:
                     versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] == versions_df_p['next_operation.from']]
                     
                     if len(versions_df_p) > 0:
-                        return_obj.update([float(versions_df_p['version_number']),float(versions_df_p['next_version'])])
+                        for ind,v in versions_df_p.iterrows():
+                            return_obj.update([float(v['version_number']),float(v['next_version'])])
         
 
         return list(return_obj)
 
-    ## Function is executed when is already known the document suffered changes
     def evolute_forward(self, Document, operation):        
-        if Document[operation['next_operation.field'].values[0]] != operation['next_operation.from'].values[0]:
-            raise BaseException('Operation does not change this record')
-        
-        Document[operation['next_operation.field'].values[0]] = operation['next_operation.to'].values[0]
+        if Document[operation['next_operation.field'].values[0]] == operation['next_operation.from'].values[0]:
+            Document = Document.copy()
+            Document[operation['next_operation.field'].values[0]] = operation['next_operation.to'].values[0]
         return Document
 
-    ## Function is executed when is already known the document suffered changes
     def evolute_backward(self, Document, operation):
-        if Document[operation['previous_operation.field']] != operation['previous_operation.from']:
-            raise BaseException('Operation does not change this record')
-        
-        Document[operation['previous_operation.field']] = operation['previous_operation.to']
-        return Document
+        if Document[operation['previous_operation.field'].values[0]] == operation['previous_operation.from'].values[0]:
+            Document = Document.copy()
+            Document[operation['previous_operation.field'].values[0]] = operation['previous_operation.to'].values[0]
+        return Document        
 
 
     def evolute(self, Document, TargetVersion):
