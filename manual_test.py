@@ -5,10 +5,13 @@ import time
 
 
 
-myCollection = BasicCollection('interscity', 'collectionTest')     
-myCollection.insert_one('{"country":"A", "city":"Newly Created City"}',datetime(2000,12,31))        
+myCollection = BasicCollection('interscity', 'collectionTest')  
+myCollection.insert_one('{"country":"A", "city":"Blala"}',datetime(2001,12,31))           
 myCollection.execute_operation('translation',datetime(2003,5,26), {'fieldName':'city', 'oldValue':'Old Created City', 'newValue':'Newly Created City'})        
-myCollection.insert_one('{"country":"A", "city":"Old Created City"}',datetime(2001,12,31))        
+myCollection.execute_operation('translation',datetime(2007,5,26), {'fieldName':'city', 'oldValue':'Newly Created City', 'newValue':'Newest Created City'})        
+myCollection.insert_one('{"country":"A", "city":"Old Created City"}',datetime(2000,12,31))        
+
+
 
 # q = myCollection.find_many({'city':'Old Created City'})                
 # myCollection.pretty_print(q)

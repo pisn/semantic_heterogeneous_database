@@ -241,20 +241,11 @@ class GroupingOperation:
         versions_df = self.collection.versions_df
         return_obj = set()
         
-        # Agrupamento nao pode andar nesse sentido
-        # if 'previous_operation.type' in versions_df.columns:
-        #     versions_df_p = versions_df.loc[versions_df['previous_operation.type'] == 'grouping']
-
-        #     if len(versions_df_p) > 0:
-        #         if {'previous_operation.type','previous_operation.field', 'previous_operation.from'}.issubset(versions_df.columns):  
-        #             versions_df_p['field_value'] = versions_df_p.apply(lambda row: Document.get(row['previous_operation.field'],None), axis=1)
-        #             versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] in versions_df_p['previous_operation.from']]
-                    
-        #             if len(versions_df_p) > 0:
-        #                 return_obj.update([float(versions_df_p['version_number']),float(versions_df_p['previous_version'])])
+        
+        original_version = versions_df.loc[versions_df['version_number'] == Document['_original_version']].iloc[0]
 
         if 'next_operation.type' in versions_df.columns:
-            versions_df_p = versions_df.loc[(versions_df['next_operation.type'] == 'grouping') & (versions_df['next_version_valid_from'] >= Document['_valid_from']) & (versions_df['next_version'] <= Document['_max_version_number']) & (versions_df['next_version'] >= Document['_min_version_number']) ]
+            versions_df_p = versions_df.loc[(versions_df['next_operation.type'] == 'grouping') & (versions_df['next_version_valid_from'] > original_version['version_valid_from']) & (versions_df['next_version'] <= Document['_max_version_number']) & (versions_df['next_version'] >= Document['_min_version_number']) ]
 
             if len(versions_df_p) > 0:
                 if {'next_operation.type','next_operation.field', 'next_operation.from'}.issubset(versions_df.columns):  
@@ -265,6 +256,7 @@ class GroupingOperation:
                         for ind,v in versions_df_p.iterrows():
                             return_obj.add((float(v['version_number']),float(v['next_version']),'forward'))
         
+        # Agrupamento nao pode andar backwards
 
         return list(return_obj)
 
