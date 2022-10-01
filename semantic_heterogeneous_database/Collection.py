@@ -1,12 +1,7 @@
-from distutils.version import Version
-from re import A
 import time
 import pandas as pd
-from .SemanticOperation import SemanticOperation
-from bson.objectid import ObjectId
 import numpy as np
 from pymongo import MongoClient, ASCENDING,DESCENDING
-from pandas.io.json import json_normalize
 from datetime import datetime
 import json
 import csv
@@ -56,7 +51,7 @@ class Collection:
         self.update_versions()
         
     def update_versions(self):
-        normalized = json_normalize(self.collection_versions.find())
+        normalized = pd.json_normalize(self.collection_versions.find())
         self.versions_df = pd.DataFrame(normalized)
 
     def register_operation(self, OperationKey, SemanticOperationClass):
