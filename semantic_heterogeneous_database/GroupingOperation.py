@@ -254,7 +254,7 @@ class GroupingOperation:
         #                 return_obj.update([float(versions_df_p['version_number']),float(versions_df_p['previous_version'])])
 
         if 'next_operation.type' in versions_df.columns:
-            versions_df_p = versions_df.loc[(versions_df['next_operation.type'] == 'grouping') & (versions_df['next_version_valid_from'] >= Document['_valid_from'])]
+            versions_df_p = versions_df.loc[(versions_df['next_operation.type'] == 'grouping') & (versions_df['next_version_valid_from'] >= Document['_valid_from']) & (versions_df['next_version'] <= Document['_max_version_number']) & (versions_df['next_version'] >= Document['_min_version_number']) ]
 
             if len(versions_df_p) > 0:
                 if {'next_operation.type','next_operation.field', 'next_operation.from'}.issubset(versions_df.columns):  
