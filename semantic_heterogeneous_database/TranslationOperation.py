@@ -236,32 +236,31 @@ class TranslationOperation:
 
     def check_if_affected(self, Document):
         versions_df = self.collection.versions_df
-        return_obj = set()
+        return_obj = list()
         
         if 'previous_operation.type' in versions_df.columns:
-            versions_df_p = versions_df.loc[(versions_df['previous_operation.type'] == 'translation') ]#& (versions_df['version_number'] <= Document['version_number'])] #Operacao precisa partir de versao igual ou inferior a atual
+            versions_df_p = versions_df.loc[(versions_df['previous_operation.type'] == 'translation')& (versions_df['previous_version_valid_from'] <= Document['_valid_from']) & (versions_df['previous_version'] <= Document['_max_version_number']) & (versions_df['previous_version'] >= Document['_min_version_number']) ] #Operacao precisa partir de versao igual ou inferior a atual
 
             if len(versions_df_p) > 0:
                 if {'previous_operation.type','previous_operation.field', 'previous_operation.from'}.issubset(versions_df.columns):  
                     versions_df_p['field_value'] = versions_df_p.apply(lambda row: Document.get(row['previous_operation.field'],None), axis=1)
                     versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] == versions_df_p['previous_operation.from']]
-                    
-                    if len(versions_df_p) > 0:
-                        for ind,v in versions_df_p.iterrows():
-                            return_obj.update([float(v['version_number']),float(v['previous_version'])])
+                    versions_df_p.sort_values('version_number', inplace=True)
+
+                    if len(versions_df_p) > 0:                        
+                        return_obj.append((float(versions_df_p.iloc[0]['version_number']),float(versions_df_p.iloc[0]['previous_version']),'backward'))
 
 
         if 'next_operation.type' in versions_df.columns:
-            versions_df_p = versions_df.loc[(versions_df['next_operation.type'] == 'translation')]
+            versions_df_p = versions_df.loc[(versions_df['next_operation.type'] == 'translation') & (versions_df['next_version_valid_from'] >= Document['_valid_from']) & (versions_df['next_version'] <= Document['_max_version_number']) & (versions_df['next_version'] >= Document['_min_version_number']) ] ## Operacao foi executada depois do valid date do registro
 
             if len(versions_df_p) > 0:
                 if {'next_operation.type','next_operation.field', 'next_operation.from'}.issubset(versions_df.columns):  
                     versions_df_p['field_value'] = versions_df_p.apply(lambda row: Document.get(row['next_operation.field'], None), axis=1)
                     versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] == versions_df_p['next_operation.from']]
-                    
-                    if len(versions_df_p) > 0:
-                        for ind,v in versions_df_p.iterrows():
-                            return_obj.update([float(v['version_number']),float(v['next_version'])])
+                    versions_df_p.sort_values('version_number', inplace=True)
+                    if len(versions_df_p) > 0:                        
+                        return_obj.append((float(versions_df_p.iloc[0]['version_number']),float(versions_df_p.iloc[0]['next_version']),'forward'))
         
 
         return list(return_obj)
@@ -270,13 +269,18 @@ class TranslationOperation:
         if Document[operation['next_operation.field'].values[0]] == operation['next_operation.from'].values[0]:
             Document = Document.copy()
             Document[operation['next_operation.field'].values[0]] = operation['next_operation.to'].values[0]
-        return Document
+            return Document
+        else:
+            raise BaseException('Record should not be evoluted')        
+        
 
     def evolute_backward(self, Document, operation):
         if Document[operation['previous_operation.field'].values[0]] == operation['previous_operation.from'].values[0]:
             Document = Document.copy()
             Document[operation['previous_operation.field'].values[0]] = operation['previous_operation.to'].values[0]
-        return Document        
+            return Document                
+        else:
+            raise BaseException('Record should not be evoluted')
 
 
     def evolute(self, Document, TargetVersion):

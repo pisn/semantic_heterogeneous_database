@@ -254,7 +254,7 @@ class GroupingOperation:
         #                 return_obj.update([float(versions_df_p['version_number']),float(versions_df_p['previous_version'])])
 
         if 'next_operation.type' in versions_df.columns:
-            versions_df_p = versions_df.loc[versions_df['next_operation.type'] == 'grouping']
+            versions_df_p = versions_df.loc[(versions_df['next_operation.type'] == 'grouping') & (versions_df['next_version_valid_from'] >= Document['_valid_from'])]
 
             if len(versions_df_p) > 0:
                 if {'next_operation.type','next_operation.field', 'next_operation.from'}.issubset(versions_df.columns):  
@@ -263,7 +263,7 @@ class GroupingOperation:
                     
                     if len(versions_df_p) > 0:
                         for ind,v in versions_df_p.iterrows():
-                            return_obj.update([float(v['version_number']),float(v['next_version'])])
+                            return_obj.add((float(v['version_number']),float(v['next_version']),'forward'))
         
 
         return list(return_obj)
@@ -275,7 +275,8 @@ class GroupingOperation:
             Document[operation['next_operation.field'].values[0]] = operation['next_operation.to'].values[0]            
             return Document
         else:
-            return None
+            raise BaseException('Record should not be evoluted')
+        
 
     def evolute_backward(self, Document, operation):        
         pass

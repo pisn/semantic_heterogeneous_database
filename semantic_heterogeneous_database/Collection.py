@@ -101,52 +101,43 @@ class Collection:
         ##Ideia é checar aqui se pode ter tido alterações semanticas para cada tipo,
         #dado que parametros sao diferentes. Ai splitar ja os processados e talvez ate processar 
         #na hora. Assim nao preciso ficar checando na consulta mais. 
-        affected_versions = list()
+        
+        check_list = list()                
+        insertion_list = list()                
         minVersion = float(self.versions_df['version_number'].min())
-        maxVersion = float(self.versions_df['version_number'].max())
-        affected_versions.append(minVersion)
-        affected_versions.append(maxVersion)
+        maxVersion = float(self.versions_df['version_number'].max())        
+        p['_min_version_number'] = minVersion
+        p['_max_version_number'] = maxVersion
+        check_list.append(p)
 
-        for operationType in self.semantic_operations:
-            if operationType in ['grouping','translation']: ##somente para teste, depois eu implemento no desagrupamento também
-                affected_versions.extend(self.semantic_operations[operationType].check_if_affected(p))                
+        count = 1
 
-        affected_versions.sort()
-        insertion_list = list()
-        original_processed_index = -1
+        while len(check_list) > 0:
+            document = check_list.pop()
+            count = count + 1
 
-        for i in range(0,len(affected_versions)-1, 2):
-            po = p.copy()
-            a = affected_versions[i]
-            b = affected_versions[i+1]
+            for operationType in self.semantic_operations:
+                if operationType in ['grouping','translation']: ##somente para teste, depois eu implemento no desagrupamento também                    
+                    affected_versions = self.semantic_operations[operationType].check_if_affected(document)                                       
+                    
+                    if affected_versions != None:                                           
+                        for v in affected_versions:
+                            if v[2] == 'forward':
+                                operation = self.versions_df.loc[(self.versions_df['next_version'] == v[1])]
+                                new_document = self.semantic_operations[operation['next_operation.type'].values[0]].evolute_forward(document, operation)                                
+                                new_document['_min_version_number'] = v[1]
+                                document['_max_version_number'] = v[0]
+                                check_list.append(new_document)
+                            else:
+                                operation = self.versions_df.loc[(self.versions_df['previous_version'] == v[1])]
+                                new_document = self.semantic_operations[operation['previous_operation.type'].values[0]].evolute_backward(document, operation)                                
+                                new_document['_max_version_number'] = v[1]
+                                document['_min_version_number'] = v[0]
+                                check_list.append(new_document)
 
-            po['_min_version_number'] = float(a)
-            po['_max_version_number'] = float(b)
-            insertion_list.append(po)
-
-            if a <= VersionNumber and b >= VersionNumber:
-                original_processed_index = len(insertion_list) - 1
-
-        ## Depois que eu processar e gerar as novas versoes aqui, eu preciso reverificar se esses mesmos documentos nao batem em 
-        ## alguma alteração semantica. Pois podem cair em algum criterio JA DEPOIS do processamento de outra alteração
+            insertion_list.append(document)  ## If affected versions, document limits already updated when arrived here    
         
-        for i in range(original_processed_index+1, len(insertion_list)):
-            document = insertion_list[i]
-            document['_evolution_list'] = [VersionNumber]
-            operation = self.versions_df.loc[(self.versions_df['next_version'] == document['_min_version_number'])]
-            
-            new_document = self.semantic_operations[operation['next_operation.type'].values[0]].evolute_forward(document, operation)
-            insertion_list[i] = new_document
 
-        for i in range(-1,original_processed_index, -1):
-            document = insertion_list[i]
-            document['_evolution_list'] = [VersionNumber]
-            
-            operation = self.versions_df.loc[(self.versions_df['previous_version'] == document['_max_version_number'])]
-
-            new_document = self.semantic_operations[operation['previous_operation.type'].values[0]].evolute_backward(document, operation)
-            insertion_list[i] = new_document
-        
         self.collection_processed.insert_many(insertion_list)
 
 
