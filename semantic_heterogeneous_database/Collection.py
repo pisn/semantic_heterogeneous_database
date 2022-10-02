@@ -173,23 +173,38 @@ class Collection:
         r[ValidFromField] = pd.to_datetime(r[ValidFromField])
         r['start'] = pd.to_datetime(r['start'])
         r['end'] = pd.to_datetime(r['end'])
+        r['_valid_from'] = r[ValidFromField]
         r = r.loc[(r['start']<= r[ValidFromField]) & (r['end'] > r[ValidFromField])]
+        r.rename(columns={'start':'version_valid_from'}, inplace=True)
 
-        chunks = r.groupby(['start'])
+        ##Preciso dar um jeito de passar o version number ja. Ja estou passando o valid from também. Para tentar processar tudo de uma vez só
+        r_2 = pd.merge(r, self.versions_df, on='version_valid_from')
+        r_2.rename(columns={'version_number':'_original_version'}, inplace=True)
 
-        for versionValidFrom, group in chunks:            
-            versions = self.collection_versions.find({'version_valid_from':{'$lte' : versionValidFrom}}).sort('version_valid_from',DESCENDING)
-            version = next(versions, None)
-
-            self.__insert_many_by_version(group.drop('start', 1).drop('end',1), version['version_number'], versionValidFrom)        
+        cols = list(dataframe.columns)
+        cols.append('_valid_from')
+        cols.append('_original_version')
 
 
-    def __insert_many_by_version(self, Group: pd.DataFrame, VersionNumber:int, ValidFromDate:datetime):
+        self.__insert_many_by_version(r_2[cols])
+            
+        # chunks = r.groupby(['start'])
+
+        # for versionValidFrom, group in chunks:            
+        #     versions = self.collection_versions.find({'version_valid_from':{'$lte' : versionValidFrom}}).sort('version_valid_from',DESCENDING)
+        #     version = next(versions, None)
+
+        #     self.__insert_many_by_version(group.drop('start', 1).drop('end',1), version['version_number'], versionValidFrom)        
+            
+
+
+    def __insert_many_by_version(self, Group: pd.DataFrame):
 
         processed_group = Group.copy()       
         
-        Group['_original_version']=VersionNumber           
-        Group['_valid_from'] = ValidFromDate       
+        #Teoricamente ja tem que estar preenchido (checar)  
+        # Group['_original_version']=VersionNumber           
+        # Group['_valid_from'] = ValidFromDate       
 
         insertedDocuments = self.collection.insert_many(Group.to_dict('records'))       
         
@@ -198,33 +213,55 @@ class Collection:
         
         minVersion = float(self.versions_df['version_number'].min())
         maxVersion = float(self.versions_df['version_number'].max()) 
-           
-        processed_group['_original_version'] = VersionNumber
-        processed_group['_valid_from'] = ValidFromDate
+ 
         processed_group['_evoluted'] = False                     
         processed_group['_min_version_number'] = minVersion
         processed_group['_max_version_number'] = maxVersion
         #processed_group['_evolution_list'] = []
 
         ### Verificação e processamento das alterações semanticas
-        for operationType in self.semantic_operations:
-            if operationType in ['translation']: ##somente para teste, depois eu implemento no desagrupamento também                    
-                affected_versions = self.semantic_operations[operationType].check_if_many_affected(processed_group, ValidFromDate, VersionNumber)
+        recheck_group = processed_group.copy()
 
+        while len(recheck_group) > 0:
+            g = recheck_group
+            recheck_group = pd.DataFrame()
 
-        
-        self.collection_processed.insert_many(processed_group.to_dict('records'))
+            for operationType in self.semantic_operations:
+                if operationType in ['translation']: ##somente para teste, depois eu implemento no desagrupamento também                    
+                    affected_versions = self.semantic_operations[operationType].check_if_many_affected(g)
 
-        new_fields = list()
-        for field in Group.columns:
-            if not field.startswith('_'):
-                if field not in self.fields:
-                    new_field = {'field_name': field, 'first_edit_version': VersionNumber, 'last_edit_version': VersionNumber}                
-                    new_fields.append(new_field)
-                    self.fields[field] = (VersionNumber, VersionNumber)
+                    if affected_versions != None:                                           
+                        for v in affected_versions:
+                            if v[2] == 'backward':
+                                altered = self.semantic_operations[operationType].evolute_many_backward(v[1], v[0])
+                                altered['_max_version_number'] = altered['previous_version']
+                                v[1]['_min_version_number'] = v[1]['version_number'] #matched records before semantic evolution
+                                recheck_group.add(altered)
+                                recheck_group.add(v[1])
+                                g=g.loc[g['_original_id'] not in altered['_original_id']] 
+                            else:
+                                altered = self.semantic_operations[operationType].evolute_many_forward(v[1], v[0])
+                                altered['_min_version_number'] = altered['next_version']
+                                v[1]['_max_version_number'] = v[1]['version_number'] #matched records before semantic evolution
+                                recheck_group.add(altered)
+                                recheck_group.add(v[1])
+                                g=g.loc[g['_original_id'] not in altered['_original_id']] 
+            
+            if len(g) > 0: # O que ta no g nao foi tocado por nenhuma alteração semantica e já pode ser inserido direto
+                self.collection_processed.insert_many(g.to_dict('records'))
 
-        if len(new_fields) > 0:
-            self.collection_columns.insert_many(new_fields)
+        ### Depois preencher isso aqui certinho
+
+        # new_fields = list()
+        # for field in Group.columns:
+        #     if not field.startswith('_'):
+        #         if field not in self.fields:
+        #             new_field = {'field_name': field, 'first_edit_version': VersionNumber, 'last_edit_version': VersionNumber}                
+        #             new_fields.append(new_field)
+        #             self.fields[field] = (VersionNumber, VersionNumber)
+
+        # if len(new_fields) > 0:
+        #     self.collection_columns.insert_many(new_fields)
 
         
     

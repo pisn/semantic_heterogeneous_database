@@ -158,11 +158,11 @@ class GroupingOperation:
             if(res.matched_count != 1):
                 print("Next version not matched")
 
-        column = self.collection.collection_columns.find_one({'field_name':fieldName}) 
-        if column['last_edit_version'] < new_version_number:
-            self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'last_edit_version' : new_version_number}})
-        elif column['first_edit_version'] < new_version_number:
-            self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'first_edit_version' : new_version_number}})        
+        # column = self.collection.collection_columns.find_one({'field_name':fieldName}) 
+        # if column['last_edit_version'] < new_version_number:
+        #     self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'last_edit_version' : new_version_number}})
+        # elif column['first_edit_version'] < new_version_number:
+        #     self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'first_edit_version' : new_version_number}})        
 
         self.collection.collection_versions.insert_one(new_version)          
 

@@ -158,11 +158,11 @@ class TranslationOperation:
             if(res.matched_count != 1):
                 print("Next version not matched")
 
-        column = self.collection.collection_columns.find_one({'field_name':fieldName}) 
-        if column['last_edit_version'] < new_version_number:
-            self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'last_edit_version' : new_version_number}})
-        elif column['first_edit_version'] < new_version_number:
-            self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'first_edit_version' : new_version_number}})        
+        # column = self.collection.collection_columns.find_one({'field_name':fieldName}) 
+        # if column['last_edit_version'] < new_version_number:
+        #     self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'last_edit_version' : new_version_number}})
+        # elif column['first_edit_version'] < new_version_number:
+        #     self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'first_edit_version' : new_version_number}})        
 
         self.collection.collection_versions.insert_one(new_version)            
         
@@ -267,7 +267,7 @@ class TranslationOperation:
 
         return list(return_obj)
 
-    def check_if_many_affected(self, DocumentsDataFrame, ValidFromDate, VersionNumber):
+    def check_if_many_affected(self, DocumentsDataFrame):
         versions_df = self.collection.versions_df        
         return_obj = list()
 
@@ -282,11 +282,30 @@ class TranslationOperation:
                     versions_g = versions_df_p.loc[versions_df_p['previous_operation.field'] == field]
                     merged_records = pd.merge(DocumentsDataFrame, versions_g, how='left', left_on=field, right_on='previous_operation.from')
 
-                    merged_records['match'] = (merged_records['previous_operation.field'].notna()) & (merged_records['previous_version_valid_from'] < ValidFromDate) & (merged_records['previous_version'] <= merged_records['_max_version_number']) & (merged_records['previous_version'] >= merged_records['_min_version_number'])
+                    merged_records['match'] = (merged_records['previous_operation.field'].notna()) & (merged_records['previous_version_valid_from'] < merged_records['_valid_from']) & (merged_records['previous_version'] <= merged_records['_max_version_number']) & (merged_records['previous_version'] >= merged_records['_min_version_number'])
                     matched = merged_records.loc[merged_records['match']]
                     #unmatched = merged_records.loc[merged_records['match'] == False]
                     
-                    return_obj.append((matched, 'backward'))                    
+                    return_obj.append((field, matched, 'backward'))           
+
+        if 'next_operation.type' in versions_df:
+            versions_df_p = self.collection.versions_df.loc[versions_df['next_operation.type'] == 'translation']
+
+            if len(versions_df_p) > 0:
+                grouped_df = versions_df_p.groupby(by='next_operation.field')
+
+                for field, group in grouped_df:
+                    ## Depois ainda preciso limitar pelo valid from e numeros de versoes
+                    versions_g = versions_df_p.loc[versions_df_p['next_operation.field'] == field]
+                    merged_records = pd.merge(DocumentsDataFrame, versions_g, how='left', left_on=field, right_on='next_operation.from')
+
+                    merged_records['match'] = (merged_records['next_operation.field'].notna()) & (merged_records['next_version_valid_from'] < merged_records['_valid_from']) & (merged_records['next_version'] <= merged_records['_max_version_number']) & (merged_records['next_version'] >= merged_records['_min_version_number'])
+                    matched = merged_records.loc[merged_records['match']]
+                    #unmatched = merged_records.loc[merged_records['match'] == False]
+                    
+                    return_obj.append((field, matched, 'forward'))           
+
+        return return_obj      
         
 
     def evolute_forward(self, Document, operation):        
@@ -307,11 +326,15 @@ class TranslationOperation:
             raise BaseException('Record should not be evoluted')
 
 
-    def evolute_many_forward(self, DocumentOperationDataFrame):
-        pass
+    def evolute_many_forward(self, field, DocumentOperationDataFrame):
+        d = DocumentOperationDataFrame.copy()
+        d[field] = d['next_operation.to']
+        return d
 
-    def evolute_many_backward(self, DocumentOperationDataFrame):
-        pass
+    def evolute_many_backward(self, field, DocumentOperationDataFrame):        
+        d = DocumentOperationDataFrame.copy()
+        d[field] = d['previous_operation.to']
+        return d
 
 
     def evolute(self, Document, TargetVersion):

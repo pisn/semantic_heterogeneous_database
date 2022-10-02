@@ -1,4 +1,3 @@
-from ensurepip import version
 from semantic_heterogeneous_database import BasicCollection
 from datetime import datetime
 import random
