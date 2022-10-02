@@ -284,10 +284,9 @@ class TranslationOperation:
 
                     merged_records['match'] = (merged_records['previous_operation.field'].notna()) & (merged_records['previous_version_valid_from'] < ValidFromDate) & (merged_records['previous_version'] <= merged_records['_max_version_number']) & (merged_records['previous_version'] >= merged_records['_min_version_number'])
                     matched = merged_records.loc[merged_records['match']]
-                    unmatched = merged_records.loc[merged_records['match'] == False]
+                    #unmatched = merged_records.loc[merged_records['match'] == False]
                     
-                    return_obj.append((matched, 'forward'))
-                    return_obj.append((unmatched, 'unmatched'))
+                    return_obj.append((matched, 'backward'))                    
         
 
     def evolute_forward(self, Document, operation):        
@@ -306,6 +305,13 @@ class TranslationOperation:
             return Document                
         else:
             raise BaseException('Record should not be evoluted')
+
+
+    def evolute_many_forward(self, DocumentOperationDataFrame):
+        pass
+
+    def evolute_many_backward(self, DocumentOperationDataFrame):
+        pass
 
 
     def evolute(self, Document, TargetVersion):
