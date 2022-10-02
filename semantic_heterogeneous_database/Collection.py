@@ -76,16 +76,12 @@ class Collection:
 
     def __insert_one_by_version(self, JsonString, VersionNumber, ValidFromDate:datetime):        
         o = json.loads(JsonString)                
-        o['_original_version']=VersionNumber           
-        #o['_first_processed_version'] = VersionNumber ##Acho que vou acabar descontinuando esses campos se o check_affected der certo
-        #o['_last_processed_version'] = VersionNumber
+        o['_original_version']=VersionNumber                   
         o['_valid_from'] = ValidFromDate        
 
         insertedDocument = self.collection.insert_one(o)        
 
-        p = json.loads(JsonString)
-        # p['_min_version_number'] = VersionNumber
-        # p['_max_version_number'] = VersionNumber
+        p = json.loads(JsonString)        
         p['_original_id'] = insertedDocument.inserted_id
         p['_original_version'] = VersionNumber
         p['_valid_from'] = ValidFromDate
@@ -103,13 +99,10 @@ class Collection:
         maxVersion = float(self.versions_df['version_number'].max())        
         p['_min_version_number'] = minVersion
         p['_max_version_number'] = maxVersion
-        check_list.append(p)
-
-        count = 1
+        check_list.append(p)        
 
         while len(check_list) > 0:
-            document = check_list.pop()
-            count = count + 1
+            document = check_list.pop()           
 
             for operationType in self.semantic_operations:
                 if operationType in ['grouping','translation']: ##somente para teste, depois eu implemento no desagrupamento também                    
@@ -138,7 +131,6 @@ class Collection:
         
 
         self.collection_processed.insert_many(insertion_list)
-
 
         new_fields = list()
         for field in o:
@@ -194,23 +186,32 @@ class Collection:
 
     def __insert_many_by_version(self, Group: pd.DataFrame, VersionNumber:int, ValidFromDate:datetime):
 
-        processed_group = Group.copy()
-       
-        Group['_first_processed_version'] = VersionNumber
-        Group['_last_processed_version']=VersionNumber
+        processed_group = Group.copy()       
+        
         Group['_original_version']=VersionNumber           
         Group['_valid_from'] = ValidFromDate       
 
         insertedDocuments = self.collection.insert_many(Group.to_dict('records'))       
+        
 
         processed_group.insert(len(processed_group.columns),'_original_id', insertedDocuments.inserted_ids) 
-
-        processed_group['_min_version_number'] = VersionNumber        
-        processed_group['_max_version_number'] = VersionNumber        
+        
+        minVersion = float(self.versions_df['version_number'].min())
+        maxVersion = float(self.versions_df['version_number'].max()) 
+           
         processed_group['_original_version'] = VersionNumber
         processed_group['_valid_from'] = ValidFromDate
         processed_group['_evoluted'] = False                     
+        processed_group['_min_version_number'] = minVersion
+        processed_group['_max_version_number'] = maxVersion
         #processed_group['_evolution_list'] = []
+
+        ### Verificação e processamento das alterações semanticas
+        for operationType in self.semantic_operations:
+            if operationType in ['translation']: ##somente para teste, depois eu implemento no desagrupamento também                    
+                affected_versions = self.semantic_operations[operationType].check_if_many_affected(processed_group, ValidFromDate, VersionNumber)
+
+
         
         self.collection_processed.insert_many(processed_group.to_dict('records'))
 

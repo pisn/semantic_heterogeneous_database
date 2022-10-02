@@ -1,10 +1,10 @@
-import sys
-
-from importlib_metadata import version
-from .SemanticOperation import SemanticOperation
 import datetime
 from argparse import ArgumentError
-from pymongo import MongoClient, ASCENDING, DESCENDING
+from ensurepip import version
+from pymongo import  ASCENDING, DESCENDING
+import pandas as pd
+
+
 class TranslationOperation:
     def __init__(self, Collection_):
         self.collection = Collection_.collection
@@ -266,6 +266,29 @@ class TranslationOperation:
         
 
         return list(return_obj)
+
+    def check_if_many_affected(self, DocumentsDataFrame, ValidFromDate, VersionNumber):
+        versions_df = self.collection.versions_df        
+        return_obj = list()
+
+        if 'previous_operation.type' in versions_df:
+            versions_df_p = self.collection.versions_df.loc[versions_df['previous_operation.type'] == 'translation']
+
+            if len(versions_df_p) > 0:
+                grouped_df = versions_df_p.groupby(by='previous_operation.field')
+
+                for field, group in grouped_df:
+                    ## Depois ainda preciso limitar pelo valid from e numeros de versoes
+                    versions_g = versions_df_p.loc[versions_df_p['previous_operation.field'] == field]
+                    merged_records = pd.merge(DocumentsDataFrame, versions_g, how='left', left_on=field, right_on='previous_operation.from')
+
+                    merged_records['match'] = (merged_records['previous_operation.field'].notna()) & (merged_records['previous_version_valid_from'] < ValidFromDate) & (merged_records['previous_version'] <= merged_records['_max_version_number']) & (merged_records['previous_version'] >= merged_records['_min_version_number'])
+                    matched = merged_records.loc[merged_records['match']]
+                    unmatched = merged_records.loc[merged_records['match'] == False]
+                    
+                    return_obj.append((matched, 'forward'))
+                    return_obj.append((unmatched, 'unmatched'))
+        
 
     def evolute_forward(self, Document, operation):        
         if Document[operation['next_operation.field'].values[0]] == operation['next_operation.from'].values[0]:
