@@ -13,8 +13,8 @@ myCollection.insert_one('{"country":"A", "city":"Old Created City"}',datetime(20
 
 
 
-# q = myCollection.find_many({'city':'Old Created City'})                
-# myCollection.pretty_print(q)
+q = myCollection.find_many({'city':'Old Created City'})                
+myCollection.pretty_print(q)
 #myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim"}', datetime(2001,1,1))
 # myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim Ocidental"}', datetime(1947,1,1))
 # myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim Oriental"}', datetime(1947,1,1))
@@ -66,6 +66,3 @@ myCollection.insert_one('{"country":"A", "city":"Old Created City"}',datetime(20
 
 #myCollection.insert_one('{"country":"X", "city":"Pi"}',datetime(1900,12,20))                
 #myCollection.execute_operation('ungrouping',datetime(1930,6,20), {'fieldName':'city', 'oldValue':'Pi', 'newValues':['Q','W']})        
-
-query = myCollection.find_many({'city':'Pi'})
-myCollection.pretty_print(query)

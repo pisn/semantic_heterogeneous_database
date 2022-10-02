@@ -122,12 +122,16 @@ class Collection:
                                 new_document = self.semantic_operations[operation['next_operation.type'].values[0]].evolute_forward(document, operation)                                
                                 new_document['_min_version_number'] = v[1]
                                 document['_max_version_number'] = v[0]
+                                new_document['_evoluted'] = True
+                                new_document['_evolution_list'].append(v[0])
                                 check_list.append(new_document)
                             else:
                                 operation = self.versions_df.loc[(self.versions_df['previous_version'] == v[1])]
                                 new_document = self.semantic_operations[operation['previous_operation.type'].values[0]].evolute_backward(document, operation)                                
                                 new_document['_max_version_number'] = v[1]
                                 document['_min_version_number'] = v[0]
+                                new_document['_evoluted'] = True
+                                new_document['_evolution_list'].append(v[0])
                                 check_list.append(new_document)
 
             insertion_list.append(document)  ## If affected versions, document limits already updated when arrived here    
@@ -242,10 +246,16 @@ class Collection:
             while len(to_process) > 0:
                 fieldValue = to_process.pop()
                 
-                versions = self.collection_versions.count_documents({'next_operation.field':field,'next_operation.from':fieldValue})
+                if isinstance(fieldValue, tuple):                    
+                    fieldValueQ = fieldValue[0]
+                else:                    
+                    fieldValueQ = fieldValue
+
+                versions = self.collection_versions.count_documents({'next_operation.field':field,'next_operation.from':fieldValueQ})
+
                 version_number = None
                 if(versions > 0):
-                    versions = self.collection_versions.find({'next_operation.field':field,'next_operation.from':fieldValue})
+                    versions = self.collection_versions.find({'next_operation.field':field,'next_operation.from':fieldValueQ})
                     for version in versions:
                         fieldValue = version['next_operation']['to']
                         version_number = version['version_number']
