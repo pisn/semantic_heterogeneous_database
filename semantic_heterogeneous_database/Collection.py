@@ -285,16 +285,19 @@ class Collection:
             while len(to_process) > 0:
                 fieldValue = to_process.pop()
                 
+                #Lets be sure we do not get in an infinite loop here
                 if isinstance(fieldValue, tuple):                    
                     fieldValueQ = fieldValue[0]
+                    q = {'next_operation.field':field,'next_operation.from':fieldValueQ, 'version_number':{'$gt': fieldValue[1]}}                    
                 else:                    
                     fieldValueQ = fieldValue
-
-                versions = self.collection_versions.count_documents({'next_operation.field':field,'next_operation.from':fieldValueQ})
+                    q = {'next_operation.field':field,'next_operation.from':fieldValueQ}
+                
+                versions = self.collection_versions.count_documents(q)
 
                 version_number = None
                 if(versions > 0):
-                    versions = self.collection_versions.find({'next_operation.field':field,'next_operation.from':fieldValueQ})
+                    versions = self.collection_versions.find(q).sort('version_number')
                     for version in versions:
                         fieldValue = version['next_operation']['to']
                         version_number = version['version_number']
@@ -345,11 +348,19 @@ class Collection:
 
             while len(to_process) > 0:
                 fieldValue = to_process.pop()
+
+                #Lets be sure we do not get in an infinite loop here
+                if isinstance(fieldValue, tuple):                    
+                    fieldValueQ = fieldValue[0]
+                    q = {'previous_operation.field':field,'previous_operation.from':fieldValueQ, 'version_number':{'$lt': fieldValue[1]}}                    
+                else:                    
+                    fieldValueQ = fieldValue
+                    q = {'previous_operation.field':field,'previous_operation.from':fieldValueQ}
                 
-                versions = self.collection_versions.count_documents({'previous_operation.field':field,'previous_operation.from':fieldValue})
+                versions = self.collection_versions.count_documents(q)
                 version_number = None
                 if(versions > 0):
-                    versions = self.collection_versions.find({'previous_operation.field':field,'previous_operation.from':fieldValue})
+                    versions = self.collection_versions.find(q).sort('version_number', DESCENDING)
                     for version in versions:
                         fieldValue = version['previous_operation']['to']
                         version_number = version['version_number']
@@ -455,84 +466,7 @@ class Collection:
             if not isinstance(field,str) or field[0] == '$' or field[0]=='_': #pymongo operators like $and, $or, etc
                 # if isinstance(query[field],list):
                 #     to_process.extend(query[field])
-                continue                   
-
-            fieldRegister = self.fields.get(field, None)
-
-            if fieldRegister == None:
-                raise 'Field not found in collection: ' + field
-            
-            firstFieldVersion = int(fieldRegister[0])
-            lastFieldVersion = int(fieldRegister[1])            
-
-            if VersionNumber > lastFieldVersion and lastFieldVersion > max_version_number:
-                max_version_number = lastFieldVersion
-
-            elif VersionNumber < firstFieldVersion and firstFieldVersion < min_version_number:
-                min_version_number = firstFieldVersion
-        
-        end = time.time()
-        #print('Find out version:' + str(end-start))
-
-        ###Vou assumir por enquanto que estou sempre consultando a ultima versao, e que portanto sempre vou evoluir. Mas pensar no caso de que seja necessário um retrocesso
-        VersionNumber = max_version_number
-
-        ###Obtaining records which have not been translated yet to the target version and translate them                    
-        # to_translate_up = self.collection.find({'_last_processed_version' : {'$lt' : VersionNumber}})
-        # to_translate_down = self.collection.find({'_first_processed_version' : {'$gt' : VersionNumber}})
-        # to_translate_up = list(to_translate_up)        
-        
-        # for record in to_translate_up:
-        #     lastVersion = record['_last_processed_version']
-        #     while lastVersion < VersionNumber:
-        #         start = time.time()        
-        #         versionRegister = self.collection_versions.find_one({'version_number':lastVersion})
-                
-
-        #         if versionRegister == None:
-        #             raise Exception('Version register not found for ' + str(lastVersion))
-
-        #         nextOperation = versionRegister['next_operation']
-        #         nextOperationType = nextOperation['type']
-
-        #         if nextOperationType not in self.semantic_operations:
-        #             raise Exception(f"Operation type not supported: {nextOperationType}")
-
-        #         end = time.time()
-        #         print('Query collection versions:' + str(end-start))
-
-        #         start = time.time()
-        #         semanticOperation = self.semantic_operations[nextOperationType]
-        #         semanticOperation.evolute(record, versionRegister['next_version'])  
-        #         end = time.time()
-        #         print('Evolution:' + str(end-start))
-
-        #         lastVersion = versionRegister['next_version'] 
-        # end = time.time()
-        # #print('Evolution up:' + str(end-start))         
-        
-        # start = time.time()
-        # for record in to_translate_down:
-        #     firstVersion = record['_first_processed_version']
-        #     while firstVersion > VersionNumber:
-        #         versionRegister = self.collection_versions.find_one({'version_number':firstVersion})
-
-        #         if versionRegister == None:
-        #             raise Exception('Version register not found for ' + str(firstVersion))
-
-        #         previousOperation = versionRegister['previous_operation']
-        #         previousOperationType = previousOperation['type']
-
-        #         if previousOperationType not in self.semantic_operations:
-        #             raise Exception(f"Operation type not supported: {previousOperationType}")
-
-        #         semanticOperation = self.semantic_operations[previousOperationType]
-        #         semanticOperation.evolute(record, versionRegister['previous_version'])       
-
-        #         firstVersion = versionRegister['previous_version']     
-        
-        # end = time.time()
-        # #print('Evolution down:' + str(end-start))
+                continue                           
 
         Query['_min_version_number'] = {'$lte' : VersionNumber} ##Retornando registros traduzidos. 
         Query['_max_version_number'] = {'$gte' : VersionNumber} ##Retornando registros traduzidos. 
