@@ -10,7 +10,7 @@ import json
 
 class DatabaseGenerator:
     FIELD_TYPES = ['int', 'float', 'datetime','string']
-    OPERATION_TYPE = ['grouping', 'translation']
+    OPERATION_TYPE = ['grouping', 'translation','ungrouping']
 
     def __init__(self, host='localhost'):
         self.host = host     
@@ -69,7 +69,7 @@ class DatabaseGenerator:
             }
             
         elif operation_type == 'grouping':            
-            field = random.choice(fieldsList) #It doesn't make sense to group float values
+            field = random.choice(fieldsList) 
             fieldName = field[0]
             oldValues = [random.choice(self.field_domain[fieldName]), random.choice(self.field_domain[fieldName])]
             newValue = random.choice(self.field_domain[fieldName])            
@@ -78,6 +78,18 @@ class DatabaseGenerator:
                 'fieldName' : fieldName,
                 'oldValues' : oldValues,
                 'newValue' : newValue
+            }
+        
+        elif operation_type == 'ungrouping':
+            field = random.choice(fieldsList) 
+            fieldName = field[0]            
+            oldValue = random.choice(self.field_domain[fieldName])            
+            newValues = [random.choice(self.field_domain[fieldName]), random.choice(self.field_domain[fieldName])]
+
+            arguments = {
+                'fieldName' : fieldName,
+                'oldValue' : oldValue,
+                'newValues' : newValues
             }
 
         self.versions_dates.append(version_date)

@@ -214,26 +214,25 @@ class Collection:
             g = recheck_group[cols]
             recheck_group = pd.DataFrame()
 
-            for operationType in self.semantic_operations:
-                if operationType in ['translation','grouping']: ##somente para teste, depois eu implemento no desagrupamento também                    
-                    affected_versions = self.semantic_operations[operationType].check_if_many_affected(g)
+            for operationType in self.semantic_operations:                
+                affected_versions = self.semantic_operations[operationType].check_if_many_affected(g)
 
-                    if affected_versions != None:                                           
-                        for v in affected_versions:
-                            if v[2] == 'backward':
-                                altered = self.semantic_operations[operationType].evolute_many_backward(v[0], v[1])
-                                altered['_max_version_number'] = altered['previous_version']
-                                v[1]['_min_version_number'] = v[1]['version_number'] #matched records before semantic evolution
-                                recheck_group = pd.concat([recheck_group,altered, v[1]])   
-                                alt_list = list(altered['_original_id'])                             
-                                g=g.loc[~g['_original_id'].isin(alt_list)] 
-                            else:
-                                altered = self.semantic_operations[operationType].evolute_many_forward(v[0], v[1])
-                                altered['_min_version_number'] = altered['next_version']
-                                v[1]['_max_version_number'] = v[1]['version_number'] #matched records before semantic evolution
-                                recheck_group = pd.concat([recheck_group,altered, v[1]])
-                                alt_list = list(altered['_original_id'])                             
-                                g=g.loc[~g['_original_id'].isin(alt_list)] 
+                if affected_versions != None:                                           
+                    for v in affected_versions:
+                        if v[2] == 'backward':
+                            altered = self.semantic_operations[operationType].evolute_many_backward(v[0], v[1])
+                            altered['_max_version_number'] = altered['previous_version']
+                            v[1]['_min_version_number'] = v[1]['version_number'] #matched records before semantic evolution
+                            recheck_group = pd.concat([recheck_group,altered, v[1]])   
+                            alt_list = list(altered['_original_id'])                             
+                            g=g.loc[~g['_original_id'].isin(alt_list)] 
+                        else:
+                            altered = self.semantic_operations[operationType].evolute_many_forward(v[0], v[1])
+                            altered['_min_version_number'] = altered['next_version']
+                            v[1]['_max_version_number'] = v[1]['version_number'] #matched records before semantic evolution
+                            recheck_group = pd.concat([recheck_group,altered, v[1]])
+                            alt_list = list(altered['_original_id'])                             
+                            g=g.loc[~g['_original_id'].isin(alt_list)] 
             
             if len(g) > 0: # O que ta no g nao foi tocado por nenhuma alteração semantica e já pode ser inserido direto
                 self.collection_processed.insert_many(g.to_dict('records'))
