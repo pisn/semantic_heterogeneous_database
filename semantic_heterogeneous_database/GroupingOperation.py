@@ -1,5 +1,5 @@
-from ensurepip import version
-import sys
+from distutils import version
+import pandas as pd
 from .SemanticOperation import SemanticOperation
 import datetime
 from argparse import ArgumentError
@@ -156,13 +156,7 @@ class GroupingOperation:
 
             res = self.collection.collection_versions.update_one({'version_number': next_version['version_number']},{'$set':{'previous_version':new_version_number}})        
             if(res.matched_count != 1):
-                print("Next version not matched")
-
-        # column = self.collection.collection_columns.find_one({'field_name':fieldName}) 
-        # if column['last_edit_version'] < new_version_number:
-        #     self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'last_edit_version' : new_version_number}})
-        # elif column['first_edit_version'] < new_version_number:
-        #     self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'first_edit_version' : new_version_number}})        
+                print("Next version not matched")        
 
         self.collection.collection_versions.insert_one(new_version)          
 
@@ -272,6 +266,35 @@ class GroupingOperation:
 
     def evolute_backward(self, Document, operation):        
         pass
+
+    def check_if_many_affected(self, DocumentsDataFrame):
+        versions_df = self.collection.versions_df        
+        return_obj = list()
+
+        ## Grouping operation can only be applied forward.
+
+        if 'next_operation.type' in versions_df:
+            versions_df_p = self.collection.versions_df.loc[versions_df['next_operation.type'] == 'grouping']
+            versions_df_p = versions_df_p.explode('next_operation.from') #Abrindo listas dos grupos em linhas diferentes
+
+            if len(versions_df_p) > 0:
+                grouped_df = versions_df_p.groupby(by='next_operation.field')
+
+                for field, group in grouped_df:                    
+                    versions_g = versions_df_p.loc[versions_df_p['next_operation.field'] == field]
+                    merged_records = pd.merge(DocumentsDataFrame, versions_g, how='left', left_on=field, right_on='next_operation.from')
+
+                    merged_records['match'] = (merged_records['next_operation.field'].notna()) & (merged_records['next_version_valid_from'] < merged_records['_valid_from']) & (merged_records['next_version'] <= merged_records['_max_version_number']) & (merged_records['next_version'] >= merged_records['_min_version_number'])
+                    matched = merged_records.loc[merged_records['match']]                    
+                    
+                    return_obj.append((field, matched, 'forward'))           
+
+        return return_obj
+
+    def evolute_many_forward(self, field, DocumentOperationDataFrame):
+        d = DocumentOperationDataFrame.copy()
+        d[field] = d['next_operation.to']
+        return d
 
     def evolute(self, Document, TargetVersion):
         lastVersion = float(Document['_last_processed_version'])

@@ -187,27 +187,14 @@ class Collection:
 
 
         self.__insert_many_by_version(r_2[cols])
-            
-        # chunks = r.groupby(['start'])
-
-        # for versionValidFrom, group in chunks:            
-        #     versions = self.collection_versions.find({'version_valid_from':{'$lte' : versionValidFrom}}).sort('version_valid_from',DESCENDING)
-        #     version = next(versions, None)
-
-        #     self.__insert_many_by_version(group.drop('start', 1).drop('end',1), version['version_number'], versionValidFrom)        
-            
 
 
     def __insert_many_by_version(self, Group: pd.DataFrame):
 
-        processed_group = Group.copy()       
+        processed_group = Group.copy()              
         
-        #Teoricamente ja tem que estar preenchido (checar)  
-        # Group['_original_version']=VersionNumber           
-        # Group['_valid_from'] = ValidFromDate       
 
-        insertedDocuments = self.collection.insert_many(Group.to_dict('records'))       
-        
+        insertedDocuments = self.collection.insert_many(Group.to_dict('records'))              
 
         processed_group.insert(len(processed_group.columns),'_original_id', insertedDocuments.inserted_ids) 
         
@@ -228,7 +215,7 @@ class Collection:
             recheck_group = pd.DataFrame()
 
             for operationType in self.semantic_operations:
-                if operationType in ['translation']: ##somente para teste, depois eu implemento no desagrupamento também                    
+                if operationType in ['translation','grouping']: ##somente para teste, depois eu implemento no desagrupamento também                    
                     affected_versions = self.semantic_operations[operationType].check_if_many_affected(g)
 
                     if affected_versions != None:                                           
@@ -250,20 +237,6 @@ class Collection:
             
             if len(g) > 0: # O que ta no g nao foi tocado por nenhuma alteração semantica e já pode ser inserido direto
                 self.collection_processed.insert_many(g.to_dict('records'))
-
-        ### Depois preencher isso aqui certinho
-
-        # new_fields = list()
-        # for field in Group.columns:
-        #     if not field.startswith('_'):
-        #         if field not in self.fields:
-        #             new_field = {'field_name': field, 'first_edit_version': VersionNumber, 'last_edit_version': VersionNumber}                
-        #             new_fields.append(new_field)
-        #             self.fields[field] = (VersionNumber, VersionNumber)
-
-        # if len(new_fields) > 0:
-        #     self.collection_columns.insert_many(new_fields)
-
         
     
     def __process_query(self,QueryString):
@@ -431,17 +404,14 @@ class Collection:
         #E tambem que dados possam ser inseridos com tempo anterior, e assumir a versao da época.
 
         if(VersionNumber == None):
-            VersionNumber = self.current_version   
-
-        max_version_number = VersionNumber
-        min_version_number = VersionNumber
+            VersionNumber = self.current_version           
         
         ##obtaining version to be queried
         
         to_process = []
         to_process.append(Query) 
         
-        start = time.time()
+        
         while len(to_process) > 0:
             field = to_process.pop()
 
@@ -463,9 +433,7 @@ class Collection:
                 to_process.extend(field)
                 continue
 
-            if not isinstance(field,str) or field[0] == '$' or field[0]=='_': #pymongo operators like $and, $or, etc
-                # if isinstance(query[field],list):
-                #     to_process.extend(query[field])
+            if not isinstance(field,str) or field[0] == '$' or field[0]=='_': #pymongo operators like $and, $or, etc                
                 continue                           
 
         Query['_min_version_number'] = {'$lte' : VersionNumber} ##Retornando registros traduzidos. 
