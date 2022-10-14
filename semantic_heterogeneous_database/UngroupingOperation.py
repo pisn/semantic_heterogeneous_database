@@ -165,27 +165,8 @@ class UngroupingOperation:
                                                       {'next_operation.type' : 'ungrouping'}                                                      
                                                      ]}).sort('next_version_valid_from',ASCENDING)
 
-        for version_change in versions:
-            res = self.collection.collection_processed.update_many({'$and':[{'_min_version_number':{'$gte' : version_change['next_version']}},
-                                                                 {'_valid_from' : {'$lte': version_change['next_version_valid_from']}},
-                                                                 {version_change['next_operation']['field'] : version_change['next_operation']['from']},                                                                 
-                                                                ]
-                                                        }, 
-                                                        {'$set': {version_change['next_operation']['field']: ' or '.join(version_change['next_operation']['to']) + ' (ungrouped)', '_evoluted' : True},
-                                                         '$push' : {'_evolution_list': version_change['version_number']}
-                                                        })   
-            ##Lets just append to evolution list to the original records altered
-
-            res = self.collection.collection_processed.update_many({'$and':[{'_max_version_number':{'$lte' : version_change['next_version']}},
-                                                                 {'_valid_from' : {'$lte': version_change['next_version_valid_from']}},
-                                                                 {version_change['next_operation']['field'] : version_change['next_operation']['from']},                                                                 
-                                                                ]
-                                                        }, 
-                                                        {                                                            
-                                                            '$push' : {'_evolution_list':version_change['next_version']}
-                                                        })
-
-        #Grouping operation cannot be executed in the inverse order. Grouped documents cannot be transformed into ungrouped documents. However, it is possible to make a ghost element to represent this group in the past.
+                    
+        #Ungrouping operation cannot be executed in the inverse order. Grouped documents cannot be transformed into ungrouped documents. However, it is possible to make a ghost element to represent this group in the past.
         
         versions = self.collection.collection_versions.find({'$and': [{'previous_operation.field' : fieldName},
                                                       {'previous_operation.type' : 'ungrouping'}                                                      
@@ -225,6 +206,37 @@ class UngroupingOperation:
                                         },
                                         {'$set':{'_first_processed_version' : new_version_number}})
 
+    def check_if_affected(self, Document):
+        versions_df = self.collection.versions_df
+        return_obj = list()
+
+        original_version = versions_df.loc[versions_df['version_number'] == Document['_original_version']].iloc[0]
+                
+        if 'previous_operation.type' in versions_df.columns:
+            versions_df_p = versions_df.loc[(versions_df['previous_operation.type'] == 'ungrouping')& (versions_df['previous_version_valid_from'] < original_version['version_valid_from']) & (versions_df['previous_version'] <= Document['_max_version_number']) & (versions_df['previous_version'] >= Document['_min_version_number']) ] #Operacao precisa partir de versao igual ou inferior a atual            
+            versions_df_p = versions_df_p.explode('previous_operation.from')
+
+            if len(versions_df_p) > 0:
+                if {'previous_operation.type','previous_operation.field', 'previous_operation.from'}.issubset(versions_df.columns):  
+                    versions_df_p['field_value'] = versions_df_p.apply(lambda row: Document.get(row['previous_operation.field'],None), axis=1)
+                    versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] == versions_df_p['previous_operation.from']]
+                    versions_df_p.sort_values('version_number', inplace=True)
+
+                    if len(versions_df_p) > 0:                        
+                        return_obj.append((float(versions_df_p.iloc[0]['version_number']),float(versions_df_p.iloc[0]['previous_version']),'backward'))
+
+
+        ## Ungrouping cannot be applied forward
+        return list(return_obj)
+
+    def evolute_backward(self, Document, operation):
+        if Document[operation['previous_operation.field'].values[0]] == operation['previous_operation.from'].values[0]:
+            Document = Document.copy()
+            Document[operation['previous_operation.field'].values[0]] = operation['previous_operation.to'].values[0]
+            return Document                
+        else:
+            raise BaseException('Record should not be evoluted')
+
 
     def check_if_many_affected(self, DocumentsDataFrame):
         versions_df = self.collection.versions_df        
@@ -253,91 +265,4 @@ class UngroupingOperation:
     def evolute_many_backward(self, field, DocumentOperationDataFrame):        
         d = DocumentOperationDataFrame.copy()
         d[field] = d['previous_operation.to']
-        return d
-
-
-    def evolute(self, Document, TargetVersion):
-        lastVersion = float(Document['_last_processed_version'])
-        firstVersion = float(Document['_first_processed_version'])        
-
-        if TargetVersion > lastVersion:
-            while lastVersion < TargetVersion:                
-                
-                lastVersionDocument = self.collection.collection_processed.find_one({'_original_id' : Document['_id'], '_max_version_number': lastVersion})                                
-
-                versionRegister = self.collection.collection_versions.find_one({'version_number' : lastVersion})
-
-                if(versionRegister == None):
-                    raise Exception('version register not found')
-
-                evolutionOperation = versionRegister['next_operation']
-
-                if(evolutionOperation['type'] == 'ungrouping'):
-                    field = evolutionOperation['field']
-                    oldValue = evolutionOperation['from']
-                    newValues = evolutionOperation['to']
-
-                    if(field in lastVersionDocument):
-                        if lastVersionDocument[field] == oldValue:
-                            ##new row needed because register must change
-                            lastVersionDocument[field] = ' or '.join(newValues) + ' (ungrouped)'
-                            lastVersionDocument['_evoluted'] = True
-                            lastVersionDocument['_min_version_number'] = versionRegister['next_version']
-                            lastVersionDocument['_evolution_list'] = [versionRegister['next_version']]
-                            if 'previous_version' in versionRegister:
-                                lastVersionDocument['_evolution_list'].append(versionRegister['previous_version'])
-
-                            lastVersionDocument['_max_version_number'] = versionRegister['next_version']
-                            lastVersionDocument.pop('_id')
-                            self.collection.collection_processed.insert_one(lastVersionDocument)
-                        else:
-                            ##Just extend versions
-                            self.collection.collection_processed.update_one({'_id':lastVersionDocument['_id']}, {'$set':{'_max_version_number':versionRegister['next_version']}})
-                else:
-                    raise 'Error processing evolution of wrong type:' + evolutionOperation['type']        
-                
-                if(versionRegister['next_version'] != None):
-                    lastVersion = float(versionRegister['next_version'])
-                else: #Chegou a ultima versao disponivel, aumentar um ponto
-                    lastVersion = self.current_version
-                
-                
-                Document['_last_processed_version'] = lastVersion                
-        else:
-            while firstVersion > TargetVersion:
-                firstVersionDocument = self.collection.collection_processed.find_one({'_original_id' : Document['_id'], '_version_number': firstVersion})                                
-
-                versionRegister = self.collection.collection_versions.find_one({'version_number' : firstVersion})
-
-                if(versionRegister == None):
-                    raise Exception('version register not found')
-
-                evolutionOperation = versionRegister['previous_operation']
-
-                if(evolutionOperation['type'] == 'ungrouping'):
-                    field = evolutionOperation['field']
-                    oldValues = evolutionOperation['to']
-                    newValue = evolutionOperation['from']
-
-                    if(field in firstVersionDocument):
-                        if firstVersionDocument[field] in oldValues:
-                            firstVersionDocument[field] = newValue
-                            firstVersionDocument['_evoluted'] = True
-
-                            firstVersionDocument['_evolution_list'] = [versionRegister['previous_version']]
-                            if 'next_version' in versionRegister:
-                                firstVersionDocument['_evolution_list'].append(versionRegister['next_version'])
-                                
-                            firstVersionDocument['_min_version_number'] = versionRegister['previous_version']
-                            firstVersionDocument['_max_version_number'] = versionRegister['previous_version']
-                            firstVersionDocument.pop('_id')
-                            self.collection.collection_processed.insert_one(firstVersionDocument)
-                    else:
-                        self.collection.collection_processed.update_one({'_id':firstVersionDocument['_id']}, {'$set':{'_min_version_number':versionRegister['previous_version']}})
-                else:
-                    raise 'Error processing evolution of wrong type:' + evolutionOperation['type']        
-                
-                firstVersion = float(versionRegister['previous_version'])                       
-                Document['_first_processed_version'] = firstVersion                
-
-        self.collection.collection.update_one({'_id':Document['_id']}, {'$set': {'_first_processed_version': Document['_first_processed_version'], '_last_processed_version': Document['_last_processed_version']}})
+        return d    
