@@ -153,6 +153,8 @@ for i in range(number_of_tests):
     d = {
         'insert_first': method,         
         'update_percent': update_percent,
+        'records': number_of_records,
+        'evolution_fields': number_of_evolution_fields,
         'insertion_phase': tests_result['insertion_phase'],
         'operations_baseline' : tests_result['operations_baseline'],
         'operations_phase':tests_result['operations_phase']
