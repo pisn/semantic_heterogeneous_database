@@ -11,27 +11,37 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 parser=argparse.ArgumentParser()
 
-parser.add_argument("--records")
-parser.add_argument("--versions")
-parser.add_argument("--fields")
-parser.add_argument("--domain")
-parser.add_argument("--repetitions")
-parser.add_argument("--method")
-parser.add_argument("--update_percent")
-parser.add_argument("--destination")
-parser.add_argument("--evolution_fields")
+# parser.add_argument("--records")
+# parser.add_argument("--versions")
+# parser.add_argument("--fields")
+# parser.add_argument("--domain")
+# parser.add_argument("--repetitions")
+# parser.add_argument("--method")
+# parser.add_argument("--update_percent")
+# parser.add_argument("--destination")
+# parser.add_argument("--evolution_fields")
 
-args=parser.parse_args()
+# args=parser.parse_args()
 
-number_of_records = int(args.records)
-number_of_versions = int(args.versions)
-number_of_fields = int(args.fields)
-number_of_values_in_domain=int(args.domain)
-number_of_tests = int(args.repetitions)
-number_of_evolution_fields = int(args.evolution_fields)
-update_percent = float(args.update_percent)
-method = args.method
-csv_destination = args.destination
+# number_of_records = int(args.records)
+# number_of_versions = int(args.versions)
+# number_of_fields = int(args.fields)
+# number_of_values_in_domain=int(args.domain)
+# number_of_tests = int(args.repetitions)
+# number_of_evolution_fields = int(args.evolution_fields)
+# update_percent = float(args.update_percent)
+# method = args.method
+# csv_destination = args.destination
+
+number_of_records = 100000
+number_of_versions = 5
+number_of_fields = 20
+number_of_values_in_domain=20
+number_of_tests = 5
+number_of_evolution_fields = 2
+update_percent = 1
+method = 'operations_first'
+csv_destination = 'teste.csv'
 
 if method != 'insertion_first' and method != 'operations_first':
     raise BaseException('Method not implemented')
@@ -67,15 +77,14 @@ def operations_first():
     records = pd.DataFrame(d.records)
 
     start = time.time()    
-
     for i in range(number_of_versions):
         d.generate_version()        
     
     for operation in d.operations:          
-        d.collection.execute_operation(operation[0],operation[1],operation[2])
+        d.collection.execute_operation(operation[0],operation[1],operation[2])   
     
-    
-    end = time.time()
+    d.collection.insert_many_by_dataframe(records, 'valid_from_date')
+    end = time.time()    
 
     ret = {
         'execution_time': (end-start),
