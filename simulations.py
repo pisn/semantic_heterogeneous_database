@@ -20,6 +20,7 @@ parser.add_argument("--method")
 parser.add_argument("--update_percent")
 parser.add_argument("--destination")
 parser.add_argument("--evolution_fields")
+parser.add_argument("--operations")
 
 args=parser.parse_args()
 
@@ -29,6 +30,7 @@ number_of_fields = int(args.fields)
 number_of_values_in_domain=int(args.domain)
 number_of_tests = int(args.repetitions)
 number_of_evolution_fields = int(args.evolution_fields)
+number_of_operations = int(args.operations)
 update_percent = float(args.update_percent)
 method = args.method
 csv_destination = args.destination
@@ -92,8 +94,8 @@ def update_and_read_test(percent_of_update, insert_first_selected):
     
     original_records = r['generator'].records.copy()
 
-    updates = math.floor(100*percent_of_update)
-    reads = 100-updates
+    updates = math.floor(number_of_operations*percent_of_update)
+    reads = number_of_operations-updates
 
     sequence = ([True]*updates)
     sequence.extend([False]*reads)
@@ -151,6 +153,7 @@ for i in range(number_of_tests):
         'insert_first': method,         
         'update_percent': update_percent,
         'records': number_of_records,
+        'number_of_operations': number_of_operations,
         'evolution_fields': number_of_evolution_fields,
         'insertion_phase': tests_result['insertion_phase'],
         'operations_baseline' : tests_result['operations_baseline'],
