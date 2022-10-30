@@ -67,15 +67,14 @@ def operations_first():
     records = pd.DataFrame(d.records)
 
     start = time.time()    
-
     for i in range(number_of_versions):
         d.generate_version()        
     
     for operation in d.operations:          
-        d.collection.execute_operation(operation[0],operation[1],operation[2])
+        d.collection.execute_operation(operation[0],operation[1],operation[2])   
     
-    
-    end = time.time()
+    d.collection.insert_many_by_dataframe(records, 'valid_from_date')
+    end = time.time()    
 
     ret = {
         'execution_time': (end-start),
