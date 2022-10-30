@@ -87,11 +87,14 @@ def operations_first():
 
 def update_and_read_test(percent_of_update, insert_first_selected):
     ### Generate database just as before    
-
+    
+    print('Generating Database')
     if insert_first_selected:
         r = insert_first()   
     else:
         r = operations_first() 
+
+    print('Database Generated')
     
     original_records = r['generator'].records.copy()
 
@@ -114,6 +117,7 @@ def update_and_read_test(percent_of_update, insert_first_selected):
 
     queries_2 = queries.copy()     
 
+    print('Executing operations')
     start = time.time()
     for operation in sequence:             
         if operation: 
@@ -124,7 +128,8 @@ def update_and_read_test(percent_of_update, insert_first_selected):
 
     end = time.time()      
         
-    
+    print('Operations Executed')
+
     operations_time = end-start
     r['generator'].destroy()
 
@@ -149,6 +154,7 @@ def update_and_read_test(percent_of_update, insert_first_selected):
     
 
 for i in range(number_of_tests):
+    print('Starting test ' + str(i))
     tests_result = update_and_read_test(update_percent, method == 'insertion_first')
     d = {
         'insert_first': method,         
