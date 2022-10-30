@@ -52,10 +52,9 @@ class DatabaseGenerator:
         operation_type = random.choice(DatabaseGenerator.OPERATION_TYPE)
         arguments = None
 
-        fieldsList = list(filter(lambda f: f[1] != 'float', self.fields)) #float fields are not suitable for goruping nor translation
-
+         #float fields are not suitable for goruping nor translation
         if operation_type == 'translation':
-            fieldName = random.choice(fieldsList)[0]
+            fieldName = random.choice(self.evolution_fields)[0]
             oldValue = random.choice(self.field_domain[fieldName])
             newValue = oldValue
 
@@ -69,7 +68,7 @@ class DatabaseGenerator:
             }
             
         elif operation_type == 'grouping':            
-            field = random.choice(fieldsList) 
+            field = random.choice(self.evolution_fields) 
             fieldName = field[0]
             oldValues = [random.choice(self.field_domain[fieldName]), random.choice(self.field_domain[fieldName])]
             newValue = random.choice(self.field_domain[fieldName])            
@@ -81,7 +80,7 @@ class DatabaseGenerator:
             }
         
         elif operation_type == 'ungrouping':
-            field = random.choice(fieldsList) 
+            field = random.choice(self.evolution_fields) 
             fieldName = field[0]            
             oldValue = random.choice(self.field_domain[fieldName])            
             newValues = [random.choice(self.field_domain[fieldName]), random.choice(self.field_domain[fieldName])]
@@ -96,7 +95,7 @@ class DatabaseGenerator:
         self.operations.append((operation_type, version_date, arguments))       
 
 
-    def generate(self, number_of_records, number_of_versions, number_of_fields, number_of_values_in_domain):
+    def generate(self, number_of_records, number_of_versions, number_of_fields, number_of_values_in_domain, number_of_evolution_fields):
         ## Starting random database
         self.letters = string.ascii_lowercase
         self.database_name = ''.join(random.choice(self.letters) for i in range(5))
@@ -112,6 +111,8 @@ class DatabaseGenerator:
             ##Generating fields domain of available values for each field. 
             self.field_domain[field_name] = self.__generate_field_domain(field_type, number_of_values_in_domain)
 
+        fieldsList = list(filter(lambda f: f[1] != 'float', self.fields)) # float fields are not suitable for grouping and ungrouping
+        self.evolution_fields = [random.choice(fieldsList) for i in range(number_of_evolution_fields)]
         
         self.collection = BasicCollection(self.database_name, self.collection_name, self.host)
 
