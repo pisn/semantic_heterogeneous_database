@@ -66,16 +66,14 @@ def operations_first():
     d.generate(number_of_records=number_of_records, number_of_versions=1, number_of_fields=number_of_fields,number_of_values_in_domain=number_of_values_in_domain,number_of_evolution_fields=2)
     records = pd.DataFrame(d.records)
 
-    start = time.time()
-    d.collection.insert_many_by_dataframe(records.head(10), 'valid_from_date') #initial insert
+    start = time.time()    
 
     for i in range(number_of_versions):
         d.generate_version()        
     
     for operation in d.operations:          
         d.collection.execute_operation(operation[0],operation[1],operation[2])
-
-    d.collection.insert_many_by_dataframe(records.head(-10), 'valid_from_date')
+    
     
     end = time.time()
 
