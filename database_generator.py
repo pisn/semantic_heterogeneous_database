@@ -17,6 +17,7 @@ class DatabaseGenerator:
         self.operations = list() ## List to store randomly generated operations
         self.records = list()
         self.versions_dates = list()
+        self.evoluted_values = dict()
 
     def __generate_field_domain(self, field_type, number_of_values_in_domain):        
         return_list = list()
@@ -47,6 +48,16 @@ class DatabaseGenerator:
         self.records.append(new_record)  
         return new_record      
 
+    def __check_evolution(self, fieldName, value):
+        if fieldName in self.evoluted_values:
+            if value in self.evoluted_values[fieldName]:
+                return False
+        
+        self.evoluted_values.setdefault(fieldName, set())
+        self.evoluted_values[fieldName].add(value)
+        return True
+
+
     def generate_version(self):
         version_date = datetime.fromordinal(random.randint(365*2000, 365*2100))
         operation_type = random.choice(DatabaseGenerator.OPERATION_TYPE)
@@ -56,10 +67,16 @@ class DatabaseGenerator:
         if operation_type == 'translation':
             fieldName = random.choice(self.evolution_fields)[0]
             oldValue = random.choice(self.field_domain[fieldName])
-            newValue = oldValue
+            
+            while not self.__check_evolution(fieldName, oldValue):
+                oldValue = random.choice(self.field_domain[fieldName])
 
+            newValue = oldValue        
             while newValue == oldValue:
                 newValue = random.choice(self.field_domain[fieldName])
+
+                while not self.__check_evolution(fieldName, newValue):
+                    newValue = random.choice(self.field_domain[fieldName])            
             
             arguments = {
                 'fieldName' : fieldName,
@@ -71,7 +88,19 @@ class DatabaseGenerator:
             field = random.choice(self.evolution_fields) 
             fieldName = field[0]
             oldValues = [random.choice(self.field_domain[fieldName]), random.choice(self.field_domain[fieldName])]
-            newValue = random.choice(self.field_domain[fieldName])            
+
+            while not self.__check_evolution(fieldName, oldValues[0]):
+                oldValues[0] = random.choice(self.field_domain[fieldName])
+            while not self.__check_evolution(fieldName, oldValues[1]):
+                oldValues[1] = random.choice(self.field_domain[fieldName])
+
+            newValue = random.choice(self.field_domain[fieldName])         
+
+            while newValue in oldValues:
+                newValue = random.choice(self.field_domain[fieldName])
+
+                while not self.__check_evolution(fieldName, newValue):
+                    newValue = random.choice(self.field_domain[fieldName])       
 
             arguments = {
                 'fieldName' : fieldName,
@@ -82,8 +111,17 @@ class DatabaseGenerator:
         elif operation_type == 'ungrouping':
             field = random.choice(self.evolution_fields) 
             fieldName = field[0]            
-            oldValue = random.choice(self.field_domain[fieldName])            
+            oldValue = random.choice(self.field_domain[fieldName])      
+
+            while not self.__check_evolution(fieldName, oldValue):
+                oldValue = random.choice(self.field_domain[fieldName])
+
             newValues = [random.choice(self.field_domain[fieldName]), random.choice(self.field_domain[fieldName])]
+
+            while not self.__check_evolution(fieldName, newValues[0]):
+                newValues[0] = random.choice(self.field_domain[fieldName])
+            while not self.__check_evolution(fieldName, newValues[1]):
+                newValues[1] = random.choice(self.field_domain[fieldName])
 
             arguments = {
                 'fieldName' : fieldName,
