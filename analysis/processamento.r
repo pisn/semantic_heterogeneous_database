@@ -179,19 +179,21 @@ ggplot() +
 
 ###### Comparison over semantic evolution operations
 
-setwd('~/Documents/USP/Mestrado/Pesquisa/results_2')
+setwd('~/Documents/USP/Mestrado/Pesquisa/mongo-test/analysis/results_2')
 
-results <- list.files(path='~/Documents/USP/Mestrado/Pesquisa/results_2') %>% 
+results <- list.files(path='~/Documents/USP/Mestrado/Pesquisa/mongo-test/analysis/results_2') %>% 
   lapply(read_csv) %>% 
   bind_rows 
 
-scenario_mean = aggregate(results$operations_phase, list(results$number_of_versions,results$update_percent), FUN=mean)
+results_500 = results[results$number_of_operations == 500,]
+
+scenario_mean = aggregate(results_500$operations_phase, list(results_500$number_of_versions,results_500$update_percent), FUN=mean)
 names(scenario_mean) = c('number_of_versions','update_percent','mean')
 
-scenario_sd = aggregate(results$operations_phase, list(results$number_of_versions,results$update_percent), FUN=sd)
+scenario_sd = aggregate(results_500$operations_phase, list(results_500$number_of_versions,results_500$update_percent), FUN=sd)
 names(scenario_sd) = c('number_of_versions','update_percent','sd')
 
-scenario_count = aggregate(results$operations_phase, list(results$number_of_versions,results$update_percent), FUN=length)
+scenario_count = aggregate(results_500$operations_phase, list(results_500$number_of_versions,results_500$update_percent), FUN=length)
 names(scenario_count) = c('number_of_versions','update_percent','count')
 
 scenario = merge(scenario_mean, scenario_sd, by=c('number_of_versions','update_percent'))
@@ -236,7 +238,55 @@ ggplot() +
   scale_colour_manual('', breaks=c('Write-Only','Write-Heavy','50/50','Read-Heavy','Read-Only'), values=c('red','darksalmon','purple','cornflowerblue','blue')) + 
   scale_x_continuous(breaks=c(5,10,15)) +
   theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
+        legend.position = 'bottom')
+
+
+insertion_phase_mean = aggregate(results_500$insertion_phase, list(results_500$number_of_versions, results_500$insert_first), FUN=mean)
+names(insertion_phase_mean) = c('number_of_versions','insertion_type','mean')
+
+insertion_phase_sd = aggregate(results_500$insertion_phase, list(results_500$number_of_versions, results_500$insert_first), FUN=sd)
+names(insertion_phase_sd) = c('number_of_versions','insertion_type','sd')
+
+insertion_phase_count = aggregate(results_500$insertion_phase, list(results_500$number_of_versions, results_500$insert_first), FUN=length)
+names(insertion_phase_count) = c('number_of_versions','insertion_type','count')
+
+insertion_phase = merge(insertion_phase_mean, insertion_phase_sd, by=c('number_of_versions','insertion_type'))
+insertion_phase = merge(insertion_phase, insertion_phase_count, by=c('number_of_versions','insertion_type'))
+insertion_phase$count = as.numeric(insertion_phase$count)
+
+
+errors = apply(insertion_phase, 1, confidence_interval)
+insertion_phase$error = errors
+insertion_phase$lower_bound = insertion_phase$mean - insertion_phase$error
+insertion_phase$upper_bound = insertion_phase$mean + insertion_phase$error
+
+##Plot 
+insertion_first = insertion_phase[insertion_phase$insertion_type == 'insertion_first',]
+operations_first = insertion_phase[insertion_phase$insertion_type == 'operations_first',]
+
+
+ggplot() + 
+  geom_line(data=insertion_first, aes(x = number_of_versions, y = mean, colour='Insertion-First')) + 
+  geom_ribbon(aes(x=number_of_versions, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=insertion_first) +
+  geom_point(data=insertion_first, aes(x = number_of_versions, y = mean, colour='Insertion-First')) + 
+  geom_line(data=operations_first, aes(x = number_of_versions, y = mean, colour='Operations-First')) + 
+  geom_ribbon(aes(x=number_of_versions, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=operations_first) +
+  geom_point(data=operations_first, aes(x = number_of_versions, y = mean, colour='Operations-First')) + 
+  xlab('Number of Semantic Versions') + 
+  ylab('Execution Time (in seconds)') +
+  scale_x_continuous(breaks=c(5,10,15)) +
+  scale_colour_manual('', breaks=c('Insertion-First','Operations-First'), values=c('red','blue')) + 
+  theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
         legend.position = c(.05, .95),
         legend.justification = c("left", "top"),
         legend.box.just = "left",
         legend.margin = margin(6, 6, 6, 6))
+
+
+### Table
+
+read_only
+summary(results[results$update_percent == 0,'operations_baseline'])
+
+write_only
+summary(results[results$update_percent == 1,'operations_baseline'])
