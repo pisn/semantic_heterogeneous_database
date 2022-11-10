@@ -4,9 +4,9 @@ library(data.table)
 library(ggplot2)
 library(scales)
 
-setwd('~/Documents/USP/Mestrado/Pesquisa/results')
+setwd('~/Documents/USP/Mestrado/Pesquisa/mongo-test/analysis/results')
 
-results <- list.files(path='~/Documents/USP/Mestrado/Pesquisa/results') %>% 
+results <- list.files(path='~/Documents/USP/Mestrado/Pesquisa/mongo-test/analysis/results') %>% 
   lapply(read_csv) %>% 
   bind_rows 
 
@@ -44,21 +44,22 @@ operations_first = insertion_phase[insertion_phase$insertion_type == 'operations
 
 
 ggplot() + 
-  geom_line(data=insertion_first, aes(x = number_of_records, y = mean, colour='Insertion-First')) + 
+  geom_line(data=insertion_first, aes(x = number_of_records, y = mean, colour='Insertions-First')) + 
   geom_ribbon(aes(x=number_of_records, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=insertion_first) +
-  geom_point(data=insertion_first, aes(x = number_of_records, y = mean, colour='Insertion-First')) + 
+  geom_point(data=insertion_first, aes(x = number_of_records, y = mean, colour='Insertions-First'), size=3) + 
   geom_line(data=operations_first, aes(x = number_of_records, y = mean, colour='Operations-First')) + 
   geom_ribbon(aes(x=number_of_records, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=operations_first) +
-  geom_point(data=operations_first, aes(x = number_of_records, y = mean, colour='Operations-First')) + 
-  xlab('Number of Records') + 
-  ylab('Execution Time (in seconds)') +
+  geom_point(data=operations_first, aes(x = number_of_records, y = mean, colour='Operations-First'), size=3) + 
+  xlab('Number of Documents') + 
+  ylab('Execution Time (s)') +
   scale_x_continuous(labels = comma_format(big.mark = ".")) +
-  scale_colour_manual('', breaks=c('Insertion-First','Operations-First'), values=c('red','blue')) + 
+  scale_colour_manual('', breaks=c('Insertions-First','Operations-First'), values=c('red','blue')) + 
   theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
         legend.position = c(.05, .95),
         legend.justification = c("left", "top"),
         legend.box.just = "left",
-        legend.margin = margin(6, 6, 6, 6))
+        legend.margin = margin(6, 6, 6, 6),
+        text=element_text(size=18))
 
 
 ### Calculating statistics over different scenarios and different number of operations execution_time for the same number of records (500k)
@@ -91,33 +92,34 @@ mixed = scenario[scenario$update_percent == 0.5,]
 ggplot() + 
   geom_line(data=read_only, aes(x = number_of_operations, y = mean, colour='Read-Only')) + 
   geom_ribbon(aes(x=number_of_operations, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=read_only) +
-  geom_point(data=read_only, aes(x = number_of_operations, y = mean, colour='Read-Only')) + 
+  geom_point(data=read_only, aes(x = number_of_operations, y = mean, colour='Read-Only'), size=3) + 
   
   geom_line(data=write_only, aes(x = number_of_operations, y = mean, colour='Write-Only')) + 
   geom_ribbon(aes(x=number_of_operations, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=write_only) +
-  geom_point(data=write_only, aes(x = number_of_operations, y = mean, colour='Write-Only')) + 
+  geom_point(data=write_only, aes(x = number_of_operations, y = mean, colour='Write-Only'), size=3) + 
   
   geom_line(data=read_heavy, aes(x = number_of_operations, y = mean, colour='Read-Heavy')) + 
   geom_ribbon(aes(x=number_of_operations, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=read_heavy) +
-  geom_point(data=read_heavy, aes(x = number_of_operations, y = mean, colour='Read-Heavy')) + 
+  geom_point(data=read_heavy, aes(x = number_of_operations, y = mean, colour='Read-Heavy'), size=3) + 
   
   geom_line(data=write_heavy, aes(x = number_of_operations, y = mean, colour='Write-Heavy')) + 
   geom_ribbon(aes(x=number_of_operations, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=write_heavy) +
-  geom_point(data=write_heavy, aes(x = number_of_operations, y = mean, colour='Write-Heavy')) + 
+  geom_point(data=write_heavy, aes(x = number_of_operations, y = mean, colour='Write-Heavy'), size=3) + 
   
   geom_line(data=mixed, aes(x = number_of_operations, y = mean, colour='50/50')) + 
   geom_ribbon(aes(x=number_of_operations, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=mixed) +
-  geom_point(data=mixed, aes(x = number_of_operations, y = mean, colour='50/50')) + 
+  geom_point(data=mixed, aes(x = number_of_operations, y = mean, colour='50/50'), size=3) + 
   
   xlab('Number of insert/select Operations') + 
-  ylab('Execution Time (in seconds)') +
+  ylab('Execution Time (s)') +
   scale_colour_manual('', breaks=c('Write-Only','Write-Heavy','50/50','Read-Heavy','Read-Only'), values=c('red','darksalmon','purple','cornflowerblue','blue')) + 
   scale_x_continuous(breaks=c(100,200,500,700,1000)) +
   theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
         legend.position = c(.05, .95),
         legend.justification = c("left", "top"),
         legend.box.just = "left",
-        legend.margin = margin(6, 6, 6, 6))
+        legend.margin = margin(6, 6, 6, 6),
+        text=element_text(size=18))
 
 
 
@@ -151,30 +153,36 @@ mixed = scenario[scenario$update_percent == 0.5,]
 ggplot() + 
   geom_line(data=read_only, aes(x = number_of_records, y = mean, colour='Read-Only')) + 
   geom_ribbon(aes(x=number_of_records, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=read_only) +
-  geom_point(data=read_only, aes(x = number_of_records, y = mean, colour='Read-Only')) + 
+  geom_point(data=read_only, aes(x = number_of_records, y = mean, colour='Read-Only'), size=3) + 
   
   geom_line(data=write_only, aes(x = number_of_records, y = mean, colour='Write-Only')) + 
   geom_ribbon(aes(x=number_of_records, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=write_only) +
-  geom_point(data=write_only, aes(x = number_of_records, y = mean, colour='Write-Only')) + 
+  geom_point(data=write_only, aes(x = number_of_records, y = mean, colour='Write-Only'), size=3) + 
   
   geom_line(data=read_heavy, aes(x = number_of_records, y = mean, colour='Read-Heavy')) + 
   geom_ribbon(aes(x=number_of_records, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=read_heavy) +
-  geom_point(data=read_heavy, aes(x = number_of_records, y = mean, colour='Read-Heavy')) + 
+  geom_point(data=read_heavy, aes(x = number_of_records, y = mean, colour='Read-Heavy'), size=3) + 
   
   geom_line(data=write_heavy, aes(x = number_of_records, y = mean, colour='Write-Heavy')) + 
   geom_ribbon(aes(x=number_of_records, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=write_heavy) +
-  geom_point(data=write_heavy, aes(x = number_of_records, y = mean, colour='Write-Heavy')) + 
+  geom_point(data=write_heavy, aes(x = number_of_records, y = mean, colour='Write-Heavy'), size=3) + 
   
   geom_line(data=mixed, aes(x = number_of_records, y = mean, colour='50/50')) + 
   geom_ribbon(aes(x=number_of_records, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=mixed) +
-  geom_point(data=mixed, aes(x = number_of_records, y = mean, colour='50/50')) + 
+  geom_point(data=mixed, aes(x = number_of_records, y = mean, colour='50/50'), size=3) + 
   
-  xlab('Number of Records') + 
-  ylab('Execution Time (in seconds)') +
+  xlab('Number of Documents') + 
+  ylab('Execution Time (s)') +
+  ylim(0,6) +
   scale_colour_manual('', breaks=c('Read-Only','Read-Heavy','50/50','Write-Heavy','Write-Only'), values=c('blue','cornflowerblue','purple','darksalmon','red')) + 
   scale_x_continuous(breaks=c(100000,200000,300000,400000,500000),labels = comma_format(big.mark = ".")) +
   theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
-        legend.position = "bottom")
+        legend.position = c(0, .95),
+        legend.justification = c("left", "top"),
+        legend.box.just = "left",
+        legend.margin = margin(6, 6, 6, 6),
+        legend.direction = 'horizontal',
+        text=element_text(size=17))
 
 
 ###### Comparison over semantic evolution operations
@@ -215,30 +223,36 @@ mixed = scenario[scenario$update_percent == 0.5,]
 ggplot() + 
   geom_line(data=read_only, aes(x = number_of_versions, y = mean, colour='Read-Only')) + 
   geom_ribbon(aes(x=number_of_versions, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=read_only) +
-  geom_point(data=read_only, aes(x = number_of_versions, y = mean, colour='Read-Only')) + 
+  geom_point(data=read_only, aes(x = number_of_versions, y = mean, colour='Read-Only'), size=3) + 
   
   geom_line(data=write_only, aes(x = number_of_versions, y = mean, colour='Write-Only')) + 
   geom_ribbon(aes(x=number_of_versions, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=write_only) +
-  geom_point(data=write_only, aes(x = number_of_versions, y = mean, colour='Write-Only')) + 
+  geom_point(data=write_only, aes(x = number_of_versions, y = mean, colour='Write-Only'), size=3) + 
   
   geom_line(data=read_heavy, aes(x = number_of_versions, y = mean, colour='Read-Heavy')) + 
   geom_ribbon(aes(x=number_of_versions, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=read_heavy) +
-  geom_point(data=read_heavy, aes(x = number_of_versions, y = mean, colour='Read-Heavy')) + 
+  geom_point(data=read_heavy, aes(x = number_of_versions, y = mean, colour='Read-Heavy'), size=3) + 
   
   geom_line(data=write_heavy, aes(x = number_of_versions, y = mean, colour='Write-Heavy')) + 
   geom_ribbon(aes(x=number_of_versions, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=write_heavy) +
-  geom_point(data=write_heavy, aes(x = number_of_versions, y = mean, colour='Write-Heavy')) + 
+  geom_point(data=write_heavy, aes(x = number_of_versions, y = mean, colour='Write-Heavy'), size=3) + 
   
   geom_line(data=mixed, aes(x = number_of_versions, y = mean, colour='50/50')) + 
   geom_ribbon(aes(x=number_of_versions, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=mixed) +
-  geom_point(data=mixed, aes(x = number_of_versions, y = mean, colour='50/50')) + 
+  geom_point(data=mixed, aes(x = number_of_versions, y = mean, colour='50/50'), size=3) + 
   
   xlab('Number of semantic evolution operations') + 
-  ylab('Execution Time (in seconds)') +
+  ylab('Execution Time (s)') +
+  ylim(0,6) + 
   scale_colour_manual('', breaks=c('Write-Only','Write-Heavy','50/50','Read-Heavy','Read-Only'), values=c('red','darksalmon','purple','cornflowerblue','blue')) + 
   scale_x_continuous(breaks=c(5,10,15)) +
   theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
-        legend.position = 'bottom')
+        legend.position = c(0, .95),
+        legend.justification = c("left", "top"),
+        legend.box.just = "left",
+        legend.margin = margin(6, 6, 6, 6),
+        legend.direction = 'horizontal',
+        text=element_text(size=17))
 
 
 insertion_phase_mean = aggregate(results_500$insertion_phase, list(results_500$number_of_versions, results_500$insert_first), FUN=mean)
@@ -266,27 +280,48 @@ operations_first = insertion_phase[insertion_phase$insertion_type == 'operations
 
 
 ggplot() + 
-  geom_line(data=insertion_first, aes(x = number_of_versions, y = mean, colour='Insertion-First')) + 
+  geom_line(data=insertion_first, aes(x = number_of_versions, y = mean, colour='Insertions-First')) + 
   geom_ribbon(aes(x=number_of_versions, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=insertion_first) +
-  geom_point(data=insertion_first, aes(x = number_of_versions, y = mean, colour='Insertion-First')) + 
+  geom_point(data=insertion_first, aes(x = number_of_versions, y = mean, colour='Insertions-First'), size=3) + 
   geom_line(data=operations_first, aes(x = number_of_versions, y = mean, colour='Operations-First')) + 
   geom_ribbon(aes(x=number_of_versions, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=operations_first) +
-  geom_point(data=operations_first, aes(x = number_of_versions, y = mean, colour='Operations-First')) + 
-  xlab('Number of Semantic Versions') + 
-  ylab('Execution Time (in seconds)') +
+  geom_point(data=operations_first, aes(x = number_of_versions, y = mean, colour='Operations-First'), size=3) + 
+  xlab('Number of semantic evolution operations') + 
+  ylab('Execution Time (s)') +
   scale_x_continuous(breaks=c(5,10,15)) +
-  scale_colour_manual('', breaks=c('Insertion-First','Operations-First'), values=c('red','blue')) + 
+  scale_colour_manual('', breaks=c('Insertions-First','Operations-First'), values=c('red','blue')) + 
   theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
         legend.position = c(.05, .95),
         legend.justification = c("left", "top"),
         legend.box.just = "left",
-        legend.margin = margin(6, 6, 6, 6))
+        legend.margin = margin(6, 6, 6, 6),
+        text=element_text(size=18))
 
 
 ### Table
 
+confidence_interval = function(x) {
+  count = as.numeric(x['count'])
+  dev = as.numeric(x['sd'])
+  
+  error = qt(0.95, df=count-1)*dev/sqrt(count)
+  return (error)
+}
+
 read_only
-summary(results[results$update_percent == 0,'operations_baseline'])
+baseline = results[results$update_percent == 0,'operations_baseline']
+avg = mean(baseline$operations_baseline)
+dev = sd(baseline$operations_baseline)
+n = length(baseline$operations_baseline)
+error = qt(0.95, df=n-1)*dev/sqrt(n)
+
 
 write_only
 summary(results[results$update_percent == 1,'operations_baseline'])
+
+baseline = results[results$update_percent == 1,'operations_baseline']
+avg = mean(baseline$operations_baseline)
+dev = sd(baseline$operations_baseline)
+n = length(baseline$operations_baseline)
+error = qt(0.95, df=n-1)*dev/sqrt(n)
+error
