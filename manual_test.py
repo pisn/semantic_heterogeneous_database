@@ -12,9 +12,11 @@ myCollection.execute_operation('translation',datetime(2007,5,26), {'fieldName':'
 myCollection.insert_one('{"country":"A", "city":"Old Created City"}',datetime(2000,12,31))        
 
 
+myCollection.collection.rewrite_query({'city':'Old Created City'})
 
-q = myCollection.find_many({'city':'Old Created City'})                
-myCollection.pretty_print(q)
+
+# q = myCollection.find_many({'city':'Old Created City'})                
+# myCollection.pretty_print(q)
 #myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim"}', datetime(2001,1,1))
 # myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim Ocidental"}', datetime(1947,1,1))
 # myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim Oriental"}', datetime(1947,1,1))

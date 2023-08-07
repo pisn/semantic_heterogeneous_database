@@ -244,6 +244,90 @@ class Collection:
 
         return {'$or':[forward, backward]}
 
+    # I will start by assuming only rewrite forward
+    ## Neste novo processo, eu nao posso usar o campo version da coleção raw. 
+    ## Prq esse campo teoricamente nao vai existir neste modo de operação
+    def rewrite_query(self, QueryString):
+        queryTerms = {}        
+        
+        for field in QueryString.keys():             
+            queryTerms[field] = set()
+            queryTerms[field].add(QueryString[field])
+
+            to_process = []
+            to_process.append(QueryString[field])
+
+            while len(to_process) > 0:
+                fieldValue = to_process.pop()
+                
+                #Lets be sure we do not get in an infinite loop here
+                if isinstance(fieldValue, tuple):                    
+                    fieldValueQ = fieldValue[0]    
+                    p_version_start = fieldValue[3]                
+                    q = {'next_operation.field':field,'next_operation.from':fieldValueQ, 'version_number':{'$gt': fieldValue[1]}}                    
+                else:                    
+                    fieldValueQ = fieldValue
+                    p_version_start = None
+                    q = {'next_operation.field':field,'next_operation.from':fieldValueQ}
+                
+                versions = self.collection_versions.count_documents(q)
+
+                next_fieldValue = None
+                version_number = None
+                next_version_start = None
+                if(versions > 0): ##Existe alguma coisa a ser processada sobre este campo ainda                    
+                    versions = self.collection_versions.find(q).sort('version_number')
+                    for version in versions:
+                        next_fieldValue = version['next_operation']['to']
+                        version_number = version['version_number']
+                        next_version_start = version['next_version_valid_from']
+                        
+                        #besides from the original value, this value also represents a record that was translated in the past 
+                        # from the original query term. Therefore, it must be considered in the query                        
+                        to_process.append((next_fieldValue,version_number, p_version_start, next_version_start)) 
+                else:
+                    if not isinstance(fieldValue, tuple): ## não é afetado por nenhuma operacao semantica
+                        queryTerms[field].add(fieldValue)
+                        continue
+                
+                queryTerms[field].add((fieldValueQ, p_version_start, next_version_start))
+
+                    # if version_number == None:
+                    #     queryTerms[field].add(fieldValue) 
+                    # else:
+                    #     if isinstance(fieldValue, list):
+                    #         for f in fieldValue:
+                    #             queryTerms[field].add((f,next_version_start))     
+                    #     else:
+                    #         queryTerms[field].add((fieldValue,next_version_start)) 
+
+                
+        
+        ands = []
+
+        for field in queryTerms.keys():
+            ors = []
+
+            for value in queryTerms[field]:
+                if isinstance(value,tuple):
+                    p_version_start = value[1]
+                    next_version_start = value[2]
+                    
+                    if p_version_start == None:
+                        ors.append({'$and':[{field:value[0]},{'time':{'$lte':next_version_start}}]})
+                    elif next_version_start == None:
+                        ors.append({'$and':[{field:value[0]},{'time':{'$gt':p_version_start}}]})
+                    else:
+                        ors.append({'$and':[{field:value[0]},{'time':{'$gt':p_version_start}},{'time':{'$lte':next_version_start}}]})
+                else:
+                    ors.append({field:value})
+
+            ands.append({'$or' : ors})
+
+        finalQuery = {'$and' : ands}    
+        
+        return finalQuery
+
     def __process_query_forward(self,QueryString):
         queryTerms = {}        
         
