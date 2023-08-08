@@ -5,15 +5,24 @@ import time
 
 
 
+# myCollection = BasicCollection('interscity', 'collectionTest')  
+# myCollection.insert_one('{"country":"A", "city":"Blala"}',datetime(2001,12,31))           
+# myCollection.execute_operation('translation',datetime(2003,5,26), {'fieldName':'city', 'oldValue':'Old Created City', 'newValue':'Newly Created City'})        
+# myCollection.execute_operation('translation',datetime(2007,5,26), {'fieldName':'city', 'oldValue':'Newly Created City', 'newValue':'Newest Created City'})        
+# myCollection.insert_one('{"country":"A", "city":"Old Created City"}',datetime(2000,12,31))        
+
+
+# myCollection.collection.rewrite_query({'city':'Old Created City'})
+
 myCollection = BasicCollection('interscity', 'collectionTest')  
-myCollection.insert_one('{"country":"A", "city":"Blala"}',datetime(2001,12,31))           
-myCollection.execute_operation('translation',datetime(2003,5,26), {'fieldName':'city', 'oldValue':'Old Created City', 'newValue':'Newly Created City'})        
-myCollection.execute_operation('translation',datetime(2007,5,26), {'fieldName':'city', 'oldValue':'Newly Created City', 'newValue':'Newest Created City'})        
-myCollection.insert_one('{"country":"A", "city":"Old Created City"}',datetime(2000,12,31))        
+myCollection.insert_one('{"street":"A", "number":51}',datetime(2001,12,31))           
+myCollection.execute_operation('translation',datetime(2003,5,26), {'fieldName':'number', 'oldValue':51, 'newValue':252})        
+myCollection.execute_operation('translation',datetime(2007,5,26), {'fieldName':'number', 'oldValue':252, 'newValue':934})        
+myCollection.insert_one('{"street":"A", "number":51}',datetime(2000,12,31))        
 
 
-myCollection.collection.rewrite_query({'city':'Old Created City'})
-
+myCollection.collection.rewrite_query({'number':{'$gt':51}})
+pass
 
 # q = myCollection.find_many({'city':'Old Created City'})                
 # myCollection.pretty_print(q)

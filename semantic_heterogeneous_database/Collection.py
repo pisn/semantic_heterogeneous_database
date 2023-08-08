@@ -251,8 +251,8 @@ class Collection:
         queryTerms = {}        
         
         for field in QueryString.keys():             
-            queryTerms[field] = set()
-            queryTerms[field].add(QueryString[field])
+            queryTerms[field] = list()
+            queryTerms[field].append(QueryString[field])
 
             to_process = []
             to_process.append(QueryString[field])
@@ -287,21 +287,10 @@ class Collection:
                         to_process.append((next_fieldValue,version_number, p_version_start, next_version_start)) 
                 else:
                     if not isinstance(fieldValue, tuple): ## não é afetado por nenhuma operacao semantica
-                        queryTerms[field].add(fieldValue)
+                        queryTerms[field].append(fieldValue)
                         continue
                 
-                queryTerms[field].add((fieldValueQ, p_version_start, next_version_start))
-
-                    # if version_number == None:
-                    #     queryTerms[field].add(fieldValue) 
-                    # else:
-                    #     if isinstance(fieldValue, list):
-                    #         for f in fieldValue:
-                    #             queryTerms[field].add((f,next_version_start))     
-                    #     else:
-                    #         queryTerms[field].add((fieldValue,next_version_start)) 
-
-                
+                queryTerms[field].append((fieldValueQ, p_version_start, next_version_start))                
         
         ands = []
 
@@ -314,11 +303,11 @@ class Collection:
                     next_version_start = value[2]
                     
                     if p_version_start == None:
-                        ors.append({'$and':[{field:value[0]},{'time':{'$lte':next_version_start}}]})
+                        ors.append({'$and':[{field:value[0]},{'_valid_from':{'$lte':next_version_start}}]})
                     elif next_version_start == None:
-                        ors.append({'$and':[{field:value[0]},{'time':{'$gt':p_version_start}}]})
+                        ors.append({'$and':[{field:value[0]},{'_valid_from':{'$gt':p_version_start}}]})
                     else:
-                        ors.append({'$and':[{field:value[0]},{'time':{'$gt':p_version_start}},{'time':{'$lte':next_version_start}}]})
+                        ors.append({'$and':[{field:value[0]},{'_valid_from':{'$gt':p_version_start}},{'_valid_from':{'$lte':next_version_start}}]})
                 else:
                     ors.append({field:value})
 
