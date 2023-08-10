@@ -262,11 +262,29 @@ class Collection:
                 
                 #Lets be sure we do not get in an infinite loop here
                 if isinstance(fieldValue, tuple):                    
-                    fieldValueQ = fieldValue[0]    
+                    fieldValueRaw = fieldValue[0]                        
                     p_version_start = fieldValue[3]                
+                    fieldValueQ = fieldValueRaw                    
+
+                    while isinstance(fieldValueQ, dict):                        
+                        keys = list(fieldValueQ.keys())
+                        if isinstance(fieldValueQ[keys[0]], dict):
+                            fieldValueQ = fieldValueQ[keys[0]]
+                        else:
+                            fieldValueQ = fieldValueQ[keys[0]]                    
+
                     q = {'next_operation.field':field,'next_operation.from':fieldValueQ, 'version_number':{'$gt': fieldValue[1]}}                    
                 else:                    
-                    fieldValueQ = fieldValue
+                    fieldValueRaw = fieldValue
+                    fieldValueQ = fieldValueRaw                    
+                    
+                    while isinstance(fieldValueQ, dict):                        
+                        keys = list(fieldValueQ.keys())
+                        if isinstance(fieldValueQ[keys[0]], dict):
+                            fieldValueQ = fieldValueQ[keys[0]]
+                        else:
+                            fieldValueQ = fieldValueQ[keys[0]]                    
+
                     p_version_start = None
                     q = {'next_operation.field':field,'next_operation.from':fieldValueQ}
                 
@@ -281,7 +299,11 @@ class Collection:
                         next_fieldValue = version['next_operation']['to']
                         version_number = version['version_number']
                         next_version_start = version['next_version_valid_from']
-                        
+
+                        if isinstance(fieldValueRaw, dict):
+                            next_fieldValue = json.dumps(fieldValueRaw).replace(str(fieldValueQ), str(next_fieldValue))
+                            next_fieldValue = json.loads(next_fieldValue)
+
                         #besides from the original value, this value also represents a record that was translated in the past 
                         # from the original query term. Therefore, it must be considered in the query                        
                         to_process.append((next_fieldValue,version_number, p_version_start, next_version_start)) 
@@ -290,7 +312,7 @@ class Collection:
                         queryTerms[field].append(fieldValue)
                         continue
                 
-                queryTerms[field].append((fieldValueQ, p_version_start, next_version_start))                
+                queryTerms[field].append((fieldValueRaw, p_version_start, next_version_start))                
         
         ands = []
 
