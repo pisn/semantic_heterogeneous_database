@@ -21,7 +21,10 @@ myCollection.execute_operation('translation',datetime(2007,5,26), {'fieldName':'
 myCollection.insert_one('{"street":"A", "number":51}',datetime(2000,12,31))        
 
 
-myCollection.collection.rewrite_query({'number':{'$gt':51}})
+#myCollection.collection.rewrite_query({'number':{'$gt':51}})
+#myCollection.collection.rewrite_query({'number':51})
+#myCollection.collection.rewrite_query({'number':{'$in':51}})
+myCollection.collection.rewrite_query({'$xor':[{'number':51},{'outro_campo':99}]})
 pass
 
 # q = myCollection.find_many({'city':'Old Created City'})                

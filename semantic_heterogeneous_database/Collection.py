@@ -9,6 +9,7 @@ import csv
 class Collection:
     def __init__ (self,DatabaseName, CollectionName, Host='localhost'):       
         self.operations = {}
+        self.logic_operators = ['$or','$and','$xor','$not','$nor']    
 
         self.client = MongoClient(Host)        
         self.database_name = DatabaseName
@@ -244,14 +245,21 @@ class Collection:
 
         return {'$or':[forward, backward]}
 
-    # I will start by assuming only rewrite forward
-    ## Neste novo processo, eu nao posso usar o campo version da coleção raw. 
-    ## Prq esse campo teoricamente nao vai existir neste modo de operação
-    def rewrite_query(self, QueryString):
-        queryTerms = {}        
-        
-        for field in QueryString.keys():             
-            queryTerms[field] = list()
+    def __rewrite_queryterms(self, QueryString, queryTerms):
+
+        for field in QueryString.keys():  
+            if field in self.logic_operators:
+                queryTerms[field] = dict()
+                if isinstance(QueryString[field], list):
+                    for term in QueryString[field]:                        
+                        self.__rewrite_queryterms(term, queryTerms[field])
+                else:
+                    self.__rewrite_queryterms(QueryString[field], queryTerms[field])                
+                continue            
+
+            if field not in queryTerms:
+                queryTerms[field] = list()                
+
             queryTerms[field].append(QueryString[field])
 
             to_process = []
@@ -260,7 +268,7 @@ class Collection:
             while len(to_process) > 0:
                 fieldValue = to_process.pop()
                 
-                #Lets be sure we do not get in an infinite loop here
+                #Lets be sure we do not get in an infinite loop here                                
                 if isinstance(fieldValue, tuple):                    
                     fieldValueRaw = fieldValue[0]                        
                     p_version_start = fieldValue[3]                
@@ -313,7 +321,15 @@ class Collection:
                         continue
                 
                 queryTerms[field].append((fieldValueRaw, p_version_start, next_version_start))                
-        
+    
+    # I will start by assuming only rewrite forward
+    ## Neste novo processo, eu nao posso usar o campo version da coleção raw. 
+    ## Prq esse campo teoricamente nao vai existir neste modo de operação
+    def rewrite_query(self, QueryString):
+        queryTerms = {}        
+
+        self.__rewrite_queryterms(QueryString,queryTerms)
+
         ands = []
 
         for field in queryTerms.keys():
