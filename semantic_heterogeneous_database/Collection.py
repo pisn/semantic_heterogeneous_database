@@ -322,6 +322,35 @@ class Collection:
                 
                 queryTerms[field].append((fieldValueRaw, p_version_start, next_version_start))                
     
+    def __assemble_query(self, key, valueSet):
+        
+               
+        if key in self.logic_operators:
+            ands = []
+            for subkey in valueSet:
+                ands.extend(self.__assemble_query(subkey, valueSet[subkey]))
+
+            return ands       
+        
+        ors = []
+
+        for value in valueSet:
+            if isinstance(value,tuple):
+                p_version_start = value[1]
+                next_version_start = value[2]
+                
+                if p_version_start == None:
+                    ors.append({'$and':[{key:value[0]},{'_valid_from':{'$lte':next_version_start}}]})
+                elif next_version_start == None:
+                    ors.append({'$and':[{key:value[0]},{'_valid_from':{'$gt':p_version_start}}]})
+                else:
+                    ors.append({'$and':[{key:value[0]},{'_valid_from':{'$gt':p_version_start}},{'_valid_from':{'$lte':next_version_start}}]})
+            else:
+                ors.append({key:value})
+
+        return ors
+
+    
     # I will start by assuming only rewrite forward
     ## Neste novo processo, eu nao posso usar o campo version da coleção raw. 
     ## Prq esse campo teoricamente nao vai existir neste modo de operação
@@ -332,22 +361,9 @@ class Collection:
 
         ands = []
 
-        for field in queryTerms.keys():
-            ors = []
+        for field in queryTerms.keys():           
 
-            for value in queryTerms[field]:
-                if isinstance(value,tuple):
-                    p_version_start = value[1]
-                    next_version_start = value[2]
-                    
-                    if p_version_start == None:
-                        ors.append({'$and':[{field:value[0]},{'_valid_from':{'$lte':next_version_start}}]})
-                    elif next_version_start == None:
-                        ors.append({'$and':[{field:value[0]},{'_valid_from':{'$gt':p_version_start}}]})
-                    else:
-                        ors.append({'$and':[{field:value[0]},{'_valid_from':{'$gt':p_version_start}},{'_valid_from':{'$lte':next_version_start}}]})
-                else:
-                    ors.append({field:value})
+            ors = self.__assemble_query(field, queryTerms[field])
 
             ands.append({'$or' : ors})
 
