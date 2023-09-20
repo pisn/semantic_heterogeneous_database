@@ -326,11 +326,11 @@ class Collection:
         
                
         if key in self.logic_operators:
-            ands = []
+            items = []
             for subkey in valueSet:
-                ands.extend(self.__assemble_query(subkey, valueSet[subkey]))
+                items.extend([self.__assemble_query(subkey, valueSet[subkey])])
 
-            return ands       
+            return (key, items)
         
         ors = []
 
@@ -363,9 +363,16 @@ class Collection:
 
         for field in queryTerms.keys():           
 
-            ors = self.__assemble_query(field, queryTerms[field])
+            rewritten_structure = self.__assemble_query(field, queryTerms[field])
 
-            ands.append({'$or' : ors})
+            if isinstance(rewritten_structure, tuple):
+                all_items = list()
+                for rewritten_subquery in rewritten_structure[1]:                    
+                    all_items.append({'$or':[rewritten_subquery]})
+                
+                ands.append({rewritten_structure[0]:all_items})
+            else:
+                ands.append({'$or' : rewritten_structure})
 
         finalQuery = {'$and' : ands}    
         
