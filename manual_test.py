@@ -16,15 +16,16 @@ import time
 
 myCollection = BasicCollection('interscity', 'collectionTest')  
 myCollection.insert_one('{"street":"A", "number":51}',datetime(2001,12,31))           
-myCollection.execute_operation('translation',datetime(2003,5,26), {'fieldName':'number', 'oldValue':51, 'newValue':252})        
-myCollection.execute_operation('translation',datetime(2007,5,26), {'fieldName':'number', 'oldValue':252, 'newValue':934})        
+myCollection.execute_operation('grouping',datetime(2003,5,26), {'fieldName':'number', 'oldValues':[51,252], 'newValue':500})        
+#myCollection.execute_operation('ungrouping',datetime(2003,5,26), {'fieldName':'number', 'oldValue':51, 'newValues':[500,999]})        
+#myCollection.execute_operation('translation',datetime(2007,5,26), {'fieldName':'number', 'oldValue':252, 'newValue':934})        
 myCollection.insert_one('{"street":"A", "number":51}',datetime(2000,12,31))        
 
 
 #myCollection.collection.rewrite_query({'number':{'$gt':51}})
-#myCollection.collection.rewrite_query({'number':51})
+myCollection.collection.rewrite_query({'number':500})
 #myCollection.collection.rewrite_query({'number':{'$in':51}})
-myCollection.collection.rewrite_query({'$xor':[{'number':51},{'outro_campo':99}]})
+#myCollection.collection.rewrite_query({'$xor':[{'number':51},{'outro_campo':99}]})
 pass
 
 # q = myCollection.find_many({'city':'Old Created City'})                

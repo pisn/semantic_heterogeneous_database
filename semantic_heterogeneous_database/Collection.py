@@ -245,6 +245,8 @@ class Collection:
 
         return {'$or':[forward, backward]}
 
+#################################### QUERY REWRITING #######################################################################
+
     def __rewrite_queryterms(self, QueryString, queryTerms):
 
         for field in QueryString.keys():  
@@ -308,13 +310,22 @@ class Collection:
                         version_number = version['version_number']
                         next_version_start = version['next_version_valid_from']
 
-                        if isinstance(fieldValueRaw, dict):
-                            next_fieldValue = json.dumps(fieldValueRaw).replace(str(fieldValueQ), str(next_fieldValue))
-                            next_fieldValue = json.loads(next_fieldValue)
+                        
+                        ## Depending on the semantic operation, the next value can be a list (ungrouping) or a single value (translation and grouping)
+                        if isinstance(next_fieldValue,list):
+                            next_fieldValues = next_fieldValue
+                        else:
+                            next_fieldValues = [next_fieldValue]
 
-                        #besides from the original value, this value also represents a record that was translated in the past 
-                        # from the original query term. Therefore, it must be considered in the query                        
-                        to_process.append((next_fieldValue,version_number, p_version_start, next_version_start)) 
+
+                        for next_fieldValue in next_fieldValues:
+                            if isinstance(fieldValueRaw, dict):
+                                next_fieldValue = json.dumps(fieldValueRaw).replace(str(fieldValueQ), str(next_fieldValue))
+                                next_fieldValue = json.loads(next_fieldValue)
+
+                            #besides from the original value, this value also represents a record that was translated in the past 
+                            # from the original query term. Therefore, it must be considered in the query                        
+                            to_process.append((next_fieldValue,version_number, p_version_start, next_version_start)) 
                 else:
                     if not isinstance(fieldValue, tuple): ## não é afetado por nenhuma operacao semantica
                         queryTerms[field].append(fieldValue)
@@ -351,9 +362,7 @@ class Collection:
         return ors
 
     
-    # I will start by assuming only rewrite forward
-    ## Neste novo processo, eu nao posso usar o campo version da coleção raw. 
-    ## Prq esse campo teoricamente nao vai existir neste modo de operação
+    # I will start by assuming only rewrite forward    
     def rewrite_query(self, QueryString):
         queryTerms = {}        
 
@@ -377,6 +386,8 @@ class Collection:
         finalQuery = {'$and' : ands}    
         
         return finalQuery
+    
+############################################################################################################################    
 
     def __process_query_forward(self,QueryString):
         queryTerms = {}        
@@ -504,7 +515,9 @@ class Collection:
         finalQuery = {'$and' : ands}    
         
         return finalQuery
-    
+
+
+
     def count_documents(self, QueryString):
         finalQuery = self.__process_query(QueryString)        
         return self.__query_specific(finalQuery, isCount=True)
