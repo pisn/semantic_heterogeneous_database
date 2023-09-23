@@ -262,7 +262,8 @@ class Collection:
             if field not in queryTerms:
                 queryTerms[field] = list()                
 
-            queryTerms[field].append(QueryString[field])
+            ##Raw query must also be added in the final result
+            # queryTerms[field].append(QueryString[field])
 
             to_process = []
             to_process.append(QueryString[field])
@@ -326,12 +327,13 @@ class Collection:
                             #besides from the original value, this value also represents a record that was translated in the past 
                             # from the original query term. Therefore, it must be considered in the query                        
                             to_process.append((next_fieldValue,version_number, p_version_start, next_version_start)) 
+                    
+                        queryTerms[field].append((fieldValueRaw, p_version_start, next_version_start))                
                 else:
                     if not isinstance(fieldValue, tuple): ## não é afetado por nenhuma operacao semantica
                         queryTerms[field].append(fieldValue)
-                        continue
+                        continue                
                 
-                queryTerms[field].append((fieldValueRaw, p_version_start, next_version_start))                
 
     def __rewrite_queryterms_backward(self, QueryString, queryTerms):
 
@@ -346,9 +348,7 @@ class Collection:
                 continue            
 
             if field not in queryTerms:
-                queryTerms[field] = list()                
-
-            queryTerms[field].append(QueryString[field])
+                queryTerms[field] = list()                            
 
             to_process = []
             to_process.append(QueryString[field])
@@ -411,14 +411,14 @@ class Collection:
 
                             #besides from the original value, this value also represents a record that was translated in the past 
                             # from the original query term. Therefore, it must be considered in the query                        
-                            to_process.append((previous_fieldValue,version_number, p_version_start, previous_version_start)) 
+                            to_process.append((previous_fieldValue,version_number, p_version_start, previous_version_start))                 
+                        
+                        queryTerms[field].append((fieldValueRaw, p_version_start, previous_version_start))                
                 else:
                     if not isinstance(fieldValue, tuple): ## não é afetado por nenhuma operacao semantica
                         queryTerms[field].append(fieldValue)
-                        continue
-                
-                queryTerms[field].append((fieldValueRaw, p_version_start, previous_version_start))                
-    
+                        continue    
+                    
 
     def __assemble_query(self, key, valueSet):
         
