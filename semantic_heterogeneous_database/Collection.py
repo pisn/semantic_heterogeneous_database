@@ -247,16 +247,16 @@ class Collection:
 
 #################################### QUERY REWRITING #######################################################################
 
-    def __rewrite_queryterms(self, QueryString, queryTerms):
+    def __rewrite_queryterms_forward(self, QueryString, queryTerms):
 
         for field in QueryString.keys():  
             if field in self.logic_operators:
                 queryTerms[field] = dict()
                 if isinstance(QueryString[field], list):
                     for term in QueryString[field]:                        
-                        self.__rewrite_queryterms(term, queryTerms[field])
+                        self.__rewrite_queryterms_forward(term, queryTerms[field])
                 else:
-                    self.__rewrite_queryterms(QueryString[field], queryTerms[field])                
+                    self.__rewrite_queryterms_forward(QueryString[field], queryTerms[field])                
                 continue            
 
             if field not in queryTerms:
@@ -332,7 +332,94 @@ class Collection:
                         continue
                 
                 queryTerms[field].append((fieldValueRaw, p_version_start, next_version_start))                
+
+    def __rewrite_queryterms_backward(self, QueryString, queryTerms):
+
+        for field in QueryString.keys():  
+            if field in self.logic_operators:
+                queryTerms[field] = dict()
+                if isinstance(QueryString[field], list):
+                    for term in QueryString[field]:                        
+                        self.__rewrite_queryterms_backward(term, queryTerms[field])
+                else:
+                    self.__rewrite_queryterms_backward(QueryString[field], queryTerms[field])                
+                continue            
+
+            if field not in queryTerms:
+                queryTerms[field] = list()                
+
+            queryTerms[field].append(QueryString[field])
+
+            to_process = []
+            to_process.append(QueryString[field])
+
+            while len(to_process) > 0:
+                fieldValue = to_process.pop()
+                
+                #Lets be sure we do not get in an infinite loop here                                
+                if isinstance(fieldValue, tuple):                    
+                    fieldValueRaw = fieldValue[0]                        
+                    p_version_start = fieldValue[3]                
+                    fieldValueQ = fieldValueRaw                    
+
+                    while isinstance(fieldValueQ, dict):                        
+                        keys = list(fieldValueQ.keys())
+                        if isinstance(fieldValueQ[keys[0]], dict):
+                            fieldValueQ = fieldValueQ[keys[0]]
+                        else:
+                            fieldValueQ = fieldValueQ[keys[0]]                    
+
+                    q = {'previous_operation.field':field,'previous_operation.from':fieldValueQ, 'version_number':{'$lt': fieldValue[1]}}                    
+                else:                    
+                    fieldValueRaw = fieldValue
+                    fieldValueQ = fieldValueRaw                    
+                    
+                    while isinstance(fieldValueQ, dict):                        
+                        keys = list(fieldValueQ.keys())
+                        if isinstance(fieldValueQ[keys[0]], dict):
+                            fieldValueQ = fieldValueQ[keys[0]]
+                        else:
+                            fieldValueQ = fieldValueQ[keys[0]]                    
+
+                    p_version_start = None
+                    q = {'previous_operation.field':field,'previous_operation.from':fieldValueQ}
+                
+                versions = self.collection_versions.count_documents(q)
+
+                previous_fieldValue = None
+                version_number = None
+                previous_version_start = None
+                if(versions > 0): ##Existe alguma coisa a ser processada sobre este campo ainda                    
+                    versions = self.collection_versions.find(q).sort('version_number')
+                    for version in versions:
+                        previous_fieldValue = version['previous_operation']['to']
+                        version_number = version['version_number']
+                        previous_version_start = version['previous_version_valid_from']
+
+                        
+                        ## Depending on the semantic operation, the previous value can be a list (ungrouping) or a single value (translation and grouping)
+                        if isinstance(previous_fieldValue,list):
+                            previous_fieldValues = previous_fieldValue
+                        else:
+                            previous_fieldValues = [previous_fieldValue]
+
+
+                        for previous_fieldValue in previous_fieldValues:
+                            if isinstance(fieldValueRaw, dict):
+                                previous_fieldValue = json.dumps(fieldValueRaw).replace(str(fieldValueQ), str(previous_fieldValue))
+                                previous_fieldValue = json.loads(previous_fieldValue)
+
+                            #besides from the original value, this value also represents a record that was translated in the past 
+                            # from the original query term. Therefore, it must be considered in the query                        
+                            to_process.append((previous_fieldValue,version_number, p_version_start, previous_version_start)) 
+                else:
+                    if not isinstance(fieldValue, tuple): ## não é afetado por nenhuma operacao semantica
+                        queryTerms[field].append(fieldValue)
+                        continue
+                
+                queryTerms[field].append((fieldValueRaw, p_version_start, previous_version_start))                
     
+
     def __assemble_query(self, key, valueSet):
         
                
@@ -364,15 +451,28 @@ class Collection:
     
     # I will start by assuming only rewrite forward    
     def rewrite_query(self, QueryString):
-        queryTerms = {}        
+        queryTermsForward = {}        
+        self.__rewrite_queryterms_forward(QueryString,queryTermsForward)
 
-        self.__rewrite_queryterms(QueryString,queryTerms)
+        queryTermsBackward = {}        
+        self.__rewrite_queryterms_backward(QueryString,queryTermsBackward)
 
         ands = []
 
-        for field in queryTerms.keys():           
+        ##Merging the two dictionaries together
+        for field in queryTermsBackward.keys():      
+            if field in queryTermsForward:
+                if isinstance(queryTermsForward[field], list):
+                    if (queryTermsBackward[field], list):
+                        queryTermsForward[field].extend(queryTermsBackward[field])
+                    else:
+                        queryTermsForward[field].append(queryTermsBackward[field])
+                else:
+                    queryTermsForward[field] = [queryTermsForward[field], queryTermsBackward[field]]
 
-            rewritten_structure = self.__assemble_query(field, queryTerms[field])
+        for field in queryTermsForward.keys():           
+
+            rewritten_structure = self.__assemble_query(field, queryTermsForward[field])
 
             if isinstance(rewritten_structure, tuple):
                 all_items = list()
