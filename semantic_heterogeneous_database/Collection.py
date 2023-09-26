@@ -263,7 +263,7 @@ class Collection:
                 queryTerms[field] = list()                
 
             ##Raw query must also be added in the final result
-            # queryTerms[field].append(QueryString[field])
+            queryTerms[field].append(QueryString[field])
 
             to_process = []
             to_process.append(QueryString[field])
@@ -274,8 +274,12 @@ class Collection:
                 #Lets be sure we do not get in an infinite loop here                                
                 if isinstance(fieldValue, tuple):                    
                     fieldValueRaw = fieldValue[0]                        
-                    p_version_start = fieldValue[3]                
-                    fieldValueQ = fieldValueRaw                    
+                    version_start = fieldValue[2]                
+                    next_version_start = fieldValue[3]                
+                    fieldValueQ = fieldValueRaw    
+
+                    ## node in stack already represents a condition to rewrite
+                    queryTerms[field].append((fieldValueRaw, version_start, next_version_start))                
 
                     while isinstance(fieldValueQ, dict):                        
                         keys = list(fieldValueQ.keys())
@@ -288,6 +292,10 @@ class Collection:
                 else:                    
                     fieldValueRaw = fieldValue
                     fieldValueQ = fieldValueRaw                    
+
+                    next_fieldValue = None
+                    version_number = None
+                    next_version_start = None
                     
                     while isinstance(fieldValueQ, dict):                        
                         keys = list(fieldValueQ.keys())
@@ -295,21 +303,18 @@ class Collection:
                             fieldValueQ = fieldValueQ[keys[0]]
                         else:
                             fieldValueQ = fieldValueQ[keys[0]]                    
-
-                    p_version_start = None
+                    
                     q = {'next_operation.field':field,'next_operation.from':fieldValueQ}
                 
                 versions = self.collection_versions.count_documents(q)
 
-                next_fieldValue = None
-                version_number = None
-                next_version_start = None
+                
                 if(versions > 0): ##Existe alguma coisa a ser processada sobre este campo ainda                    
                     versions = self.collection_versions.find(q).sort('version_number')
                     for version in versions:
                         next_fieldValue = version['next_operation']['to']
                         version_number = version['version_number']
-                        next_version_start = version['next_version_valid_from']
+                        next_version_start = version['next_version_valid_from']                        
 
                         
                         ## Depending on the semantic operation, the next value can be a list (ungrouping) or a single value (translation and grouping)
@@ -326,13 +331,7 @@ class Collection:
 
                             #besides from the original value, this value also represents a record that was translated in the past 
                             # from the original query term. Therefore, it must be considered in the query                        
-                            to_process.append((next_fieldValue,version_number, p_version_start, next_version_start)) 
-                    
-                        queryTerms[field].append((fieldValueRaw, p_version_start, next_version_start))                
-                else:
-                    if not isinstance(fieldValue, tuple): ## não é afetado por nenhuma operacao semantica
-                        queryTerms[field].append(fieldValue)
-                        continue                
+                            to_process.append((next_fieldValue,version_number, next_version_start, None)) 
                 
 
     def __rewrite_queryterms_backward(self, QueryString, queryTerms):
@@ -350,6 +349,9 @@ class Collection:
             if field not in queryTerms:
                 queryTerms[field] = list()                            
 
+            ##Raw query must also be added in the final result
+            queryTerms[field].append(QueryString[field])
+
             to_process = []
             to_process.append(QueryString[field])
 
@@ -359,8 +361,12 @@ class Collection:
                 #Lets be sure we do not get in an infinite loop here                                
                 if isinstance(fieldValue, tuple):                    
                     fieldValueRaw = fieldValue[0]                        
-                    p_version_start = fieldValue[3]                
+                    p_version_start = fieldValue[2]                
+                    version_start = fieldValue[3] 
                     fieldValueQ = fieldValueRaw                    
+
+                    ## node in stack already represents a condition to rewrite
+                    queryTerms[field].append((fieldValueRaw, p_version_start, version_start))
 
                     while isinstance(fieldValueQ, dict):                        
                         keys = list(fieldValueQ.keys())
@@ -373,6 +379,10 @@ class Collection:
                 else:                    
                     fieldValueRaw = fieldValue
                     fieldValueQ = fieldValueRaw                    
+
+                    previous_fieldValue = None
+                    version_number = None
+                    version_start = None
                     
                     while isinstance(fieldValueQ, dict):                        
                         keys = list(fieldValueQ.keys())
@@ -383,18 +393,17 @@ class Collection:
 
                     p_version_start = None
                     q = {'previous_operation.field':field,'previous_operation.from':fieldValueQ}
-                
-                versions = self.collection_versions.count_documents(q)
 
-                previous_fieldValue = None
-                version_number = None
-                previous_version_start = None
+                
+                ## Now looking for the next nodes
+                versions = self.collection_versions.count_documents(q)               
+                
                 if(versions > 0): ##Existe alguma coisa a ser processada sobre este campo ainda                    
                     versions = self.collection_versions.find(q).sort('version_number')
                     for version in versions:
                         previous_fieldValue = version['previous_operation']['to']
                         version_number = version['version_number']
-                        previous_version_start = version['previous_version_valid_from']
+                        version_start = version['version_valid_from']
 
                         
                         ## Depending on the semantic operation, the previous value can be a list (ungrouping) or a single value (translation and grouping)
@@ -411,17 +420,10 @@ class Collection:
 
                             #besides from the original value, this value also represents a record that was translated in the past 
                             # from the original query term. Therefore, it must be considered in the query                        
-                            to_process.append((previous_fieldValue,version_number, p_version_start, previous_version_start))                 
-                        
-                        queryTerms[field].append((fieldValueRaw, p_version_start, previous_version_start))                
-                else:
-                    if not isinstance(fieldValue, tuple): ## não é afetado por nenhuma operacao semantica
-                        queryTerms[field].append(fieldValue)
-                        continue    
+                            to_process.append((previous_fieldValue,version_number, p_version_start, version_start))                            
                     
 
-    def __assemble_query(self, key, valueSet):
-        
+    def __assemble_query(self, key, valueSet):        
                
         if key in self.logic_operators:
             items = []
