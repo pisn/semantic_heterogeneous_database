@@ -274,12 +274,13 @@ class Collection:
                 #Lets be sure we do not get in an infinite loop here                                
                 if isinstance(fieldValue, tuple):                    
                     fieldValueRaw = fieldValue[0]                        
-                    version_start = fieldValue[2]                
-                    next_version_start = fieldValue[3]                
+                    p_version_start = fieldValue[2]                
+                    version_start = fieldValue[3]   
+                    valueOrigin = fieldValue[4]             
                     fieldValueQ = fieldValueRaw    
 
                     ## node in stack already represents a condition to rewrite
-                    queryTerms[field].append((fieldValueRaw, version_start, next_version_start))                
+                    queryTerms[field].append((fieldValueRaw, p_version_start, version_start, valueOrigin))                
 
                     while isinstance(fieldValueQ, dict):                        
                         keys = list(fieldValueQ.keys())
@@ -295,14 +296,14 @@ class Collection:
 
                     next_fieldValue = None
                     version_number = None
-                    next_version_start = None
+                    version_start = None
                     
                     while isinstance(fieldValueQ, dict):                        
                         keys = list(fieldValueQ.keys())
                         if isinstance(fieldValueQ[keys[0]], dict):
                             fieldValueQ = fieldValueQ[keys[0]]
                         else:
-                            fieldValueQ = fieldValueQ[keys[0]]                    
+                            fieldValueQ = fieldValueQ[keys[0]]                                        
                     
                     q = {'next_operation.field':field,'next_operation.from':fieldValueQ}
                 
@@ -314,7 +315,8 @@ class Collection:
                     for version in versions:
                         next_fieldValue = version['next_operation']['to']
                         version_number = version['version_number']
-                        next_version_start = version['next_version_valid_from']                        
+                        version_start = version['next_version_valid_from']                        
+                        p_version_start = version['version_valid_from']
 
                         
                         ## Depending on the semantic operation, the next value can be a list (ungrouping) or a single value (translation and grouping)
@@ -331,7 +333,7 @@ class Collection:
 
                             #besides from the original value, this value also represents a record that was translated in the past 
                             # from the original query term. Therefore, it must be considered in the query                        
-                            to_process.append((next_fieldValue,version_number, next_version_start, None)) 
+                            to_process.append((next_fieldValue,version_number, p_version_start, version_start, fieldValueQ)) 
                 
 
     def __rewrite_queryterms_backward(self, QueryString, queryTerms):
@@ -363,10 +365,11 @@ class Collection:
                     fieldValueRaw = fieldValue[0]                        
                     p_version_start = fieldValue[2]                
                     version_start = fieldValue[3] 
+                    valueOrigin = fieldValue[4]
                     fieldValueQ = fieldValueRaw                    
 
                     ## node in stack already represents a condition to rewrite
-                    queryTerms[field].append((fieldValueRaw, p_version_start, version_start))
+                    queryTerms[field].append((fieldValueRaw, p_version_start, version_start, valueOrigin))
 
                     while isinstance(fieldValueQ, dict):                        
                         keys = list(fieldValueQ.keys())
@@ -390,8 +393,7 @@ class Collection:
                             fieldValueQ = fieldValueQ[keys[0]]
                         else:
                             fieldValueQ = fieldValueQ[keys[0]]                    
-
-                    p_version_start = None
+                    
                     q = {'previous_operation.field':field,'previous_operation.from':fieldValueQ}
 
                 
@@ -404,6 +406,7 @@ class Collection:
                         previous_fieldValue = version['previous_operation']['to']
                         version_number = version['version_number']
                         version_start = version['version_valid_from']
+                        p_version_start = version['previous_version_valid_from']
 
                         
                         ## Depending on the semantic operation, the previous value can be a list (ungrouping) or a single value (translation and grouping)
@@ -420,7 +423,7 @@ class Collection:
 
                             #besides from the original value, this value also represents a record that was translated in the past 
                             # from the original query term. Therefore, it must be considered in the query                        
-                            to_process.append((previous_fieldValue,version_number, p_version_start, version_start))                            
+                            to_process.append((previous_fieldValue,version_number, p_version_start, version_start, fieldValueQ))                            
                     
 
     def __assemble_query(self, key, valueSet):        
@@ -449,7 +452,29 @@ class Collection:
                 ors.append({key:value})
 
         return ors
+    
 
+    ## This function could be integrated with __assemble_query. But for the sake of readability, it has been separated
+    def __prepare_transformation(self, key, valueSet):        
+               
+        rows = []
+        if key in self.logic_operators:            
+            for subkey in valueSet:
+                rows.extend([self.__prepare_transformation(subkey, valueSet[subkey])])                  
+        
+
+        for value in valueSet:
+            if isinstance(value,tuple):
+                rows.append({
+                    'start': value[1],
+                    'end': value[2],
+                    'field': key,
+                    'from':value[3],
+                    'to': value[0]
+                })               
+            
+
+        return pd.DataFrame.from_records(rows)
     
     # I will start by assuming only rewrite forward    
     def rewrite_query(self, QueryString):
@@ -457,10 +482,9 @@ class Collection:
         self.__rewrite_queryterms_forward(QueryString,queryTermsForward)
 
         queryTermsBackward = {}        
-        self.__rewrite_queryterms_backward(QueryString,queryTermsBackward)
+        self.__rewrite_queryterms_backward(QueryString,queryTermsBackward)       
 
-        ands = []
-
+        
         ##Merging the two dictionaries together
         for field in queryTermsBackward.keys():      
             if field in queryTermsForward:
@@ -472,9 +496,15 @@ class Collection:
                 else:
                     queryTermsForward[field] = [queryTermsForward[field], queryTermsBackward[field]]
 
+
+        #### assembling final query
+        transformation_df = pd.DataFrame()
+        ands = []
         for field in queryTermsForward.keys():           
 
             rewritten_structure = self.__assemble_query(field, queryTermsForward[field])
+            rows_transformation = self.__prepare_transformation(field, queryTermsForward[field])
+            transformation_df = pd.concat([transformation_df, rows_transformation])
 
             if isinstance(rewritten_structure, tuple):
                 all_items = list()
