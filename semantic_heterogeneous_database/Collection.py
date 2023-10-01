@@ -476,7 +476,24 @@ class Collection:
 
         return pd.DataFrame.from_records(rows)
     
-    # I will start by assuming only rewrite forward    
+    
+    def __transform_results(self, records, transformation_df):
+        records = pd.DataFrame.from_records(records)                
+        
+        for field, transformations in transformation_df.groupby('field'):
+            columns = list(records.columns)
+            columns.append(field+'_original')
+
+            affected_records = pd.merge(transformations, records, left_on='to', right_on=field)
+            affected_records = affected_records.loc[(affected_records['_valid_from']>=affected_records['start'])&(affected_records['_valid_from']<=affected_records['end'])]
+            affected_records[field+'_original'] = affected_records[field]            
+            affected_records[field] = affected_records['from']
+
+            records = records.loc[~records['_id'].isin(affected_records['_id'])]
+            records = pd.concat([records, affected_records[columns]])        
+
+        return records
+
     def rewrite_query(self, QueryString):
         queryTermsForward = {}        
         self.__rewrite_queryterms_forward(QueryString,queryTermsForward)
@@ -516,8 +533,13 @@ class Collection:
                 ands.append({'$or' : rewritten_structure})
 
         finalQuery = {'$and' : ands}    
+
+        records = list(self.collection.find(finalQuery))
+
+        final_result = self.__transform_results(records, transformation_df)
+        final_result = final_result.to_dict('records')
         
-        return finalQuery
+        return final_result
     
 ############################################################################################################################    
 
