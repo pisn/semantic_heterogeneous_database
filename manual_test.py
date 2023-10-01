@@ -17,13 +17,14 @@ import time
 myCollection = BasicCollection('interscity', 'collectionTest')  
 myCollection.insert_one('{"street":"A", "number":51}',datetime(2001,12,31))           
 myCollection.execute_operation('grouping',datetime(2003,5,26), {'fieldName':'number', 'oldValues':[51,252], 'newValue':500})        
+myCollection.execute_operation('translation',datetime(2005,5,26), {'fieldName':'number', 'oldValue':500, 'newValue':700})        
 #myCollection.execute_operation('ungrouping',datetime(2003,5,26), {'fieldName':'number', 'oldValue':51, 'newValues':[500,999]})        
 #myCollection.execute_operation('translation',datetime(2007,5,26), {'fieldName':'number', 'oldValue':252, 'newValue':934})        
 myCollection.insert_one('{"street":"A", "number":500}',datetime(2004,12,31))        
 
 
-query = myCollection.collection.rewrite_query({'number':51})
-#query = myCollection.collection.rewrite_query({'number':500})
+#query = myCollection.collection.rewrite_query({'number':51})
+query = myCollection.collection.rewrite_query({'number':500})
 teste = myCollection.collection.collection.find(query)
 for t in teste:
     pass
