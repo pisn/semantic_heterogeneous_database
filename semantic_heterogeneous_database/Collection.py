@@ -7,17 +7,42 @@ import json
 import csv
 
 class Collection:
-    def __init__ (self,DatabaseName, CollectionName, Host='localhost'):       
+    def __init__ (self,DatabaseName, CollectionName, Host='localhost', operation_mode='preprocess'):       
+
+        if not isinstance(operation_mode, str) or operation_mode not in ['preprocess','rewrite']:
+            raise BaseException('Operation Mode not recognized')
+        
+        self.operation_mode = operation_mode        
         self.operations = {}
         self.logic_operators = ['$or','$and','$xor','$not','$nor']    
 
         self.client = MongoClient(Host)        
         self.database_name = DatabaseName
         self.db = self.client[DatabaseName]
+
+        existing_collections = self.db.list_collection_names()
+        if operation_mode == 'rewrite':
+            if (CollectionName + '_processed') in existing_collections:
+                raise BaseException('Previous preprocessed collection already exists.')            
+        else:
+            if (CollectionName + '_processed') not in existing_collections and CollectionName in existing_collections:
+                raise BaseException('Previous rewrite collection already exists.')            
+
+
         self.collection = self.db[CollectionName]
-        self.collection_processed = self.db[CollectionName+'_processed']
-        self.collection_columns = self.db[CollectionName+'_columns']
         self.collection_versions = self.db[CollectionName + '_versions']
+
+        if operation_mode == 'preprocess':
+            self.collection_processed = self.db[CollectionName+'_processed']
+            self.collection_columns = self.db[CollectionName+'_columns']
+
+            ## Loading columns collection in memory        
+            fields = self.collection_columns.find({})
+            self.fields = dict([(col['field_name'], (col['first_edit_version'], col['last_edit_version'])) for col in fields])
+
+            ## Loading semantic operations in memory       
+            self.update_versions()
+        
         self.current_version = self.collection_versions.find_one({"current_version":1})
         self.semantic_operations = {}
         
@@ -41,15 +66,7 @@ class Collection:
         ## Create indexes. The operation is idempotent. Nothing will be done if the index is already there
 
         self.collection.create_index([('_first_processed_version',ASCENDING)])
-        self.collection.create_index([('_last_processed_version',ASCENDING)])        
-
-        ## Loading columns collection in memory
-
-        fields = self.collection_columns.find({})
-        self.fields = dict([(col['field_name'], (col['first_edit_version'], col['last_edit_version'])) for col in fields])
-
-        ## Loading semantic operations in memory       
-        self.update_versions()
+        self.collection.create_index([('_last_processed_version',ASCENDING)])                
         
     def update_versions(self):
         normalized = pd.json_normalize(self.collection_versions.find())
@@ -81,6 +98,9 @@ class Collection:
         o['_valid_from'] = ValidFromDate        
 
         insertedDocument = self.collection.insert_one(o)        
+
+        if self.operation_mode != 'preprocess':
+            return
 
         p = json.loads(JsonString)        
         p['_original_id'] = insertedDocument.inserted_id
@@ -195,7 +215,10 @@ class Collection:
         processed_group = Group.copy()              
         
 
-        insertedDocuments = self.collection.insert_many(Group.to_dict('records'))              
+        insertedDocuments = self.collection.insert_many(Group.to_dict('records'))         
+
+        if self.operation_mode != 'preprocess':
+            return     
 
         processed_group.insert(len(processed_group.columns),'_original_id', insertedDocuments.inserted_ids) 
         
@@ -494,7 +517,7 @@ class Collection:
 
         return records
 
-    def rewrite_query(self, QueryString):
+    def __rewrite_and_query(self, QueryString):
         queryTermsForward = {}        
         self.__rewrite_queryterms_forward(QueryString,queryTermsForward)
 
@@ -688,15 +711,20 @@ class Collection:
         Returns: a cursor for the records returned by the query
 
         """
-        #start = time.time()
-        finalQuery = self.__process_query(QueryString)                          
-        #end = time.time()
-        #print('Query processing:' + str(end-start))       
 
-        #start = time.time()
-        r = self.__query_specific(finalQuery)     
-        #end = time.time()
-        #print('Query results:' + str(end-start))
+        if self.operation_mode == 'preprocess':
+            #start = time.time()
+            finalQuery = self.__process_query(QueryString)                          
+            #end = time.time()
+            #print('Query processing:' + str(end-start))       
+
+            #start = time.time()
+            r = self.__query_specific(finalQuery)     
+            #end = time.time()
+            #print('Query results:' + str(end-start))
+        else:
+            r = self.__rewrite_and_query(QueryString)
+
         return r
 
     def __query_specific(self, Query, VersionNumber=None, isCount=False):

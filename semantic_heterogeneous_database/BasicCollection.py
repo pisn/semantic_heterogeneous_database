@@ -6,8 +6,12 @@ from datetime import datetime
 from .UngroupingOperation import UngroupingOperation
 
 class BasicCollection:
-    def __init__ (self,DatabaseName, CollectionName, Host='localhost'):        
-        self.collection = Collection(DatabaseName,CollectionName, Host)
+    def __init__ (self,DatabaseName, CollectionName, Host='localhost', operation_mode='preprocess'):        
+        if not isinstance(operation_mode, str) or operation_mode not in ['preprocess','rewrite']:
+            raise BaseException('Operation Mode not recognized')
+
+        self.operation_mode = operation_mode
+        self.collection = Collection(DatabaseName,CollectionName, Host, operation_mode)
 
         self.collection.register_operation('translation', TranslationOperation(self))
         self.collection.register_operation('grouping', GroupingOperation(self))

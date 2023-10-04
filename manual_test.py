@@ -14,7 +14,7 @@ import time
 
 # myCollection.collection.rewrite_query({'city':'Old Created City'})
 
-myCollection = BasicCollection('interscity', 'collectionTest')  
+myCollection = BasicCollection('interscity', 'collectionTest', operation_mode='rewrite')  
 myCollection.insert_one('{"street":"A", "number":51}',datetime(2001,12,31))           
 myCollection.execute_operation('grouping',datetime(2003,5,26), {'fieldName':'number', 'oldValues':[51,252], 'newValue':500})        
 myCollection.execute_operation('translation',datetime(2005,5,26), {'fieldName':'number', 'oldValue':500, 'newValue':700})        
@@ -23,16 +23,13 @@ myCollection.execute_operation('translation',datetime(2005,5,26), {'fieldName':'
 myCollection.insert_one('{"street":"A", "number":500}',datetime(2004,12,31))        
 
 
-#query = myCollection.collection.rewrite_query({'number':51})
-query = myCollection.collection.rewrite_query({'number':500})
-teste = myCollection.collection.collection.find(query)
-for t in teste:
-    pass
+q = myCollection.find_many({'number':500})
 #myCollection.collection.rewrite_query({'number':{'$in':51}})
 #myCollection.collection.rewrite_query({'$xor':[{'number':51},{'outro_campo':99}]})
 pass
 
-# q = myCollection.find_many({'city':'Old Created City'})                
+
+
 # myCollection.pretty_print(q)
 #myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim"}', datetime(2001,1,1))
 # myCollection.insert_one('{"pais": "Alemanha", "cidade":"Berlim Ocidental"}', datetime(1947,1,1))
