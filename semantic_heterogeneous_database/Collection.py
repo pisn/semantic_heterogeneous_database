@@ -303,7 +303,7 @@ class Collection:
                     fieldValueQ = fieldValueRaw    
 
                     ## node in stack already represents a condition to rewrite
-                    queryTerms[field].append((fieldValueRaw, p_version_start, version_start, valueOrigin))                
+                    queryTerms[field].append((fieldValueRaw, p_version_start, version_start, valueOrigin, 'forward'))                
 
                     while isinstance(fieldValueQ, dict):                        
                         keys = list(fieldValueQ.keys())
@@ -392,7 +392,7 @@ class Collection:
                     fieldValueQ = fieldValueRaw                    
 
                     ## node in stack already represents a condition to rewrite
-                    queryTerms[field].append((fieldValueRaw, p_version_start, version_start, valueOrigin))
+                    queryTerms[field].append((fieldValueRaw, p_version_start, version_start, valueOrigin, 'backward'))
 
                     while isinstance(fieldValueQ, dict):                        
                         keys = list(fieldValueQ.keys())
@@ -493,19 +493,29 @@ class Collection:
                     'end': value[2],
                     'field': key,
                     'from':value[3],
-                    'to': value[0]
+                    'to': value[0],
+                    'direction': value[4]
                 })               
             
 
         return pd.DataFrame.from_records(rows)
     
     
-    def __transform_results(self, records, transformation_df, as_of_date=datetime(2200,12,31)):
-        records = pd.DataFrame.from_records(records)                
+    def __transform_results(self, records, transformation_df):
+        records = pd.DataFrame.from_records(records)          
+        
+        transformation_df['s'] = transformation_df['from']
+        transformation_df.loc[transformation_df['direction']=='backward','from'] = transformation_df['to']
+        transformation_df.loc[transformation_df['direction']=='backward','to'] = transformation_df['s']
+        transformation_df.drop(columns=['s'],inplace=True)
         
         for field, transformations in transformation_df.groupby('field'):
             columns = list(records.columns)
             columns.append(field+'_original')
+            columns.append('valid_from_evoluted')
+
+            records['valid_from_evoluted'] = records['_valid_from']
+            records[field+'_original'] = records[field]
 
             ## the "end" column is the limit of valid_date from records to be updated. 
             ## the "end_validity" is the limit until when this updated version is up to date. After it, it becomes obsolete
@@ -517,13 +527,20 @@ class Collection:
 
             transformations = pd.merge(transformations, ends, on=['end'])
 
-            affected_records = pd.merge(transformations, records, left_on='to', right_on=field)
-            affected_records = affected_records.loc[(affected_records['_valid_from']>=affected_records['start'])&(affected_records['_valid_from']<=affected_records['end'])]
-            affected_records[field+'_original'] = affected_records[field]            
-            affected_records[field] = affected_records['from']
+            affected_records = pd.merge(transformations, records, left_on='from', right_on=field)            
+            affected_records = affected_records.loc[(affected_records['valid_from_evoluted']>=affected_records['start'])&(affected_records['valid_from_evoluted']<=affected_records['end'])]            
 
-            records = records.loc[~records['_id'].isin(affected_records['_id'])]
-            records = pd.concat([records, affected_records[columns]])        
+            while len(affected_records) > 0:                            
+                affected_records[field] = affected_records['to']
+                affected_records['valid_from_evoluted'] = affected_records['end_validity']
+            
+                records = records.loc[~records['_id'].isin(affected_records['_id'])]
+                records = pd.concat([records, affected_records[columns]])        
+
+                affected_records = pd.merge(transformations, records, left_on='from', right_on=field)                                    
+                affected_records = affected_records.loc[(affected_records['valid_from_evoluted']>=affected_records['start'])&(affected_records['valid_from_evoluted']<=affected_records['end'])]            
+
+            records.drop(columns=['valid_from_evoluted'], inplace=True)
 
         return records
 
