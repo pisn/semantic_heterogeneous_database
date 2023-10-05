@@ -500,12 +500,22 @@ class Collection:
         return pd.DataFrame.from_records(rows)
     
     
-    def __transform_results(self, records, transformation_df):
+    def __transform_results(self, records, transformation_df, as_of_date=datetime(2200,12,31)):
         records = pd.DataFrame.from_records(records)                
         
         for field, transformations in transformation_df.groupby('field'):
             columns = list(records.columns)
             columns.append(field+'_original')
+
+            ## the "end" column is the limit of valid_date from records to be updated. 
+            ## the "end_validity" is the limit until when this updated version is up to date. After it, it becomes obsolete
+            ## this is important to specify which version should be returned
+            ends = transformations.sort_values('end')[['end']].drop_duplicates()
+            ends['end_validity'] = ends['end'].shift(-1)
+            ends['end_validity'].fillna(datetime(2200,12,31), inplace=True)
+            
+
+            transformations = pd.merge(transformations, ends, on=['end'])
 
             affected_records = pd.merge(transformations, records, left_on='to', right_on=field)
             affected_records = affected_records.loc[(affected_records['_valid_from']>=affected_records['start'])&(affected_records['_valid_from']<=affected_records['end'])]
