@@ -21,6 +21,7 @@ parser.add_argument("--update_percent")
 parser.add_argument("--destination")
 parser.add_argument("--evolution_fields")
 parser.add_argument("--operations")
+parser.add_argument("--mode")
 
 args=parser.parse_args()
 
@@ -32,6 +33,7 @@ number_of_tests = int(args.repetitions)
 number_of_evolution_fields = int(args.evolution_fields)
 number_of_operations = int(args.operations)
 update_percent = float(args.update_percent)
+operation_mode = args.mode
 method = args.method
 csv_destination = args.destination
 
@@ -43,7 +45,7 @@ performance_results = pd.DataFrame()
 
 def insert_first():    
     d = DatabaseGenerator()
-    d.generate(number_of_records=number_of_records, number_of_versions=1, number_of_fields=number_of_fields,number_of_values_in_domain=number_of_values_in_domain,number_of_evolution_fields=2)
+    d.generate(number_of_records=number_of_records, number_of_versions=1, number_of_fields=number_of_fields,number_of_values_in_domain=number_of_values_in_domain,number_of_evolution_fields=2, operation_mode=operation_mode)
     records = pd.DataFrame(d.records)
 
     start = time.time()
@@ -65,7 +67,7 @@ def insert_first():
 
 def operations_first():    
     d = DatabaseGenerator()
-    d.generate(number_of_records=number_of_records, number_of_versions=1, number_of_fields=number_of_fields,number_of_values_in_domain=number_of_values_in_domain,number_of_evolution_fields=2)
+    d.generate(number_of_records=number_of_records, number_of_versions=1, number_of_fields=number_of_fields,number_of_values_in_domain=number_of_values_in_domain,number_of_evolution_fields=2, operation_mode=operation_mode)
     records = pd.DataFrame(d.records)
 
     start = time.time()    

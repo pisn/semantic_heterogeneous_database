@@ -133,7 +133,7 @@ class DatabaseGenerator:
         self.operations.append((operation_type, version_date, arguments))       
 
 
-    def generate(self, number_of_records, number_of_versions, number_of_fields, number_of_values_in_domain, number_of_evolution_fields):
+    def generate(self, number_of_records, number_of_versions, number_of_fields, number_of_values_in_domain, number_of_evolution_fields, operation_mode):
         ## Starting random database
         self.letters = string.ascii_lowercase
         self.database_name = ''.join(random.choice(self.letters) for i in range(5))
@@ -152,7 +152,7 @@ class DatabaseGenerator:
         fieldsList = list(filter(lambda f: f[1] != 'float', self.fields)) # float fields are not suitable for grouping and ungrouping
         self.evolution_fields = [random.choice(fieldsList) for i in range(number_of_evolution_fields)]
         
-        self.collection = BasicCollection(self.database_name, self.collection_name, self.host)
+        self.collection = BasicCollection(self.database_name, self.collection_name, self.host, operation_mode)
 
         self.versions_dates.append(datetime(1700,1,1))
              
