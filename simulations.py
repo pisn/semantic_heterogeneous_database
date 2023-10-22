@@ -156,13 +156,17 @@ def update_and_read_test(percent_of_update, insert_first_selected):
 
 for i in range(number_of_tests):
     print('Starting test ' + str(i))
-    tests_result = update_and_read_test(update_percent, method == 'insertion_first')
+    tests_result = update_and_read_test(update_percent, method == 'insertion_first')    
     d = {
-        'insert_first': method,         
-        'update_percent': update_percent,
-        'records': number_of_records,
-        'number_of_operations': number_of_operations,
-        'evolution_fields': number_of_evolution_fields,
+        'number_of_versions':number_of_versions,
+        'number_of_fields':number_of_fields,
+        'number_of_values_in_domain':number_of_values_in_domain,
+        'number_of_tests':number_of_tests,
+        'number_of_evolution_fields':number_of_evolution_fields,
+        'number_of_operations':number_of_operations,
+        'update_percent':update_percent,
+        'operation_mode':operation_mode,
+        'method':method,
         'insertion_phase': tests_result['insertion_phase'],
         'operations_baseline' : tests_result['operations_baseline'],
         'operations_phase':tests_result['operations_phase']
