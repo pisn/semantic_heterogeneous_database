@@ -59,7 +59,8 @@ class Collection:
                 "next_version":None,
                 "next_operation":None
             }
-            self.collection_versions.insert_one(first_version)                       
+            self.collection_versions.insert_one(first_version)  
+            self.update_versions()                     
         else:
             self.current_version = self.current_version['version_number']
 
