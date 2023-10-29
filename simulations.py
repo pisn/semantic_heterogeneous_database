@@ -37,6 +37,8 @@ operation_mode = args.mode
 method = args.method
 csv_destination = args.destination
 
+print(f'Test Arguments:{str(args)}')
+
 if method != 'insertion_first' and method != 'operations_first':
     raise BaseException('Method not implemented')
 
@@ -67,16 +69,21 @@ def insert_first():
 
 def operations_first():    
     d = DatabaseGenerator()
+    print('Generating Records')
     d.generate(number_of_records=number_of_records, number_of_versions=1, number_of_fields=number_of_fields,number_of_values_in_domain=number_of_values_in_domain,number_of_evolution_fields=2, operation_mode=operation_mode)
     records = pd.DataFrame(d.records)
 
     start = time.time()    
     for i in range(number_of_versions):
+        print('Generating Version')
         d.generate_version()        
     
-    for operation in d.operations:          
+    for operation in d.operations: 
+        print('Executing version operations')       
+        print(f'OperationType:{str(operation[0])} - ValidFrom:{str(operation[1])} - Args:{str(operation[2])}')  
         d.collection.execute_operation(operation[0],operation[1],operation[2])   
     
+    print('Inserting Records')
     d.collection.insert_many_by_dataframe(records, 'valid_from_date')
     end = time.time()    
 

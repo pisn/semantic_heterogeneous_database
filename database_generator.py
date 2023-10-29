@@ -66,17 +66,32 @@ class DatabaseGenerator:
          #float fields are not suitable for goruping nor translation
         if operation_type == 'translation':
             fieldName = random.choice(self.evolution_fields)[0]
-            oldValue = random.choice(self.field_domain[fieldName])
+            oldValue = random.choice(self.field_domain[fieldName])                        
             
-            while not self.__check_evolution(fieldName, oldValue):
+            t = 0
+            while not self.__check_evolution(fieldName, oldValue):                
+                t=t+1
                 oldValue = random.choice(self.field_domain[fieldName])
+                if t>30:
+                    self.generate_version()##Ran into an infinite loop here. Just try to generate another combination
+                    return
 
-            newValue = oldValue        
+            t = 0
+            newValue = oldValue                    
             while newValue == oldValue:
+                t=t+1
                 newValue = random.choice(self.field_domain[fieldName])
-
+                if t>30:
+                    self.generate_version()##Ran into an infinite loop here. Just try to generate another combination
+                    return
+                
+                t2 = 0
                 while not self.__check_evolution(fieldName, newValue):
+                    t2 = t2+1                    
                     newValue = random.choice(self.field_domain[fieldName])            
+                    if t2>30:
+                        self.generate_version()
+                        return
             
             arguments = {
                 'fieldName' : fieldName,
@@ -89,18 +104,39 @@ class DatabaseGenerator:
             fieldName = field[0]
             oldValues = [random.choice(self.field_domain[fieldName]), random.choice(self.field_domain[fieldName])]
 
+            t=0
             while not self.__check_evolution(fieldName, oldValues[0]):
+                t=t+1
                 oldValues[0] = random.choice(self.field_domain[fieldName])
+                if t>30:
+                    self.generate_version()
+                    return
+                
+            t=0
             while not self.__check_evolution(fieldName, oldValues[1]):
+                t=t+1
                 oldValues[1] = random.choice(self.field_domain[fieldName])
+                if t>30:
+                    self.generate_version()
+                    return
 
             newValue = random.choice(self.field_domain[fieldName])         
 
+            t=0
             while newValue in oldValues:
+                t=t+1
                 newValue = random.choice(self.field_domain[fieldName])
+                if t>30:
+                    self.generate_version()
+                    return
 
+                t2=0
                 while not self.__check_evolution(fieldName, newValue):
+                    t2=t2+1
                     newValue = random.choice(self.field_domain[fieldName])       
+                    if t2>30:
+                        self.generate_version()
+                        return
 
             arguments = {
                 'fieldName' : fieldName,
@@ -113,15 +149,31 @@ class DatabaseGenerator:
             fieldName = field[0]            
             oldValue = random.choice(self.field_domain[fieldName])      
 
+            t=0
             while not self.__check_evolution(fieldName, oldValue):
+                t=t+1
                 oldValue = random.choice(self.field_domain[fieldName])
+                if t>30:
+                    self.generate_version()
+                    return
 
             newValues = [random.choice(self.field_domain[fieldName]), random.choice(self.field_domain[fieldName])]
 
+            t=0
             while not self.__check_evolution(fieldName, newValues[0]):
+                t=t+1
                 newValues[0] = random.choice(self.field_domain[fieldName])
+                if t>30:
+                    self.generate_version()
+                    return
+            
+            t=0
             while not self.__check_evolution(fieldName, newValues[1]):
+                t=t+1
                 newValues[1] = random.choice(self.field_domain[fieldName])
+                if t>30:
+                    self.generate_version()
+                    return
 
             arguments = {
                 'fieldName' : fieldName,

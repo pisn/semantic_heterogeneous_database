@@ -566,7 +566,7 @@ class Collection:
 
 
         #### assembling final query
-        transformation_df = pd.DataFrame()
+        transformation_df = pd.DataFrame(columns=['start','end','field','from','to','direction'])
         ands = []
         for field in queryTermsForward.keys():           
 
