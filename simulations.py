@@ -165,6 +165,7 @@ for i in range(number_of_tests):
     print('Starting test ' + str(i))
     tests_result = update_and_read_test(update_percent, method == 'insertion_first')    
     d = {
+        'number_of_records':number_of_records,
         'number_of_versions':number_of_versions,
         'number_of_fields':number_of_fields,
         'number_of_values_in_domain':number_of_values_in_domain,
