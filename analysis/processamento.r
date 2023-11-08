@@ -4,9 +4,9 @@ library(data.table)
 library(ggplot2)
 library(scales)
 
-setwd('~/Documents/USP/Mestrado/Pesquisa/mongo-test/analysis/results')
+setwd('/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos')
 
-results <- list.files(path='~/Documents/USP/Mestrado/Pesquisa/mongo-test/analysis/results') %>% 
+results <- list.files(path='/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos') %>% 
   lapply(read_csv) %>% 
   bind_rows 
 

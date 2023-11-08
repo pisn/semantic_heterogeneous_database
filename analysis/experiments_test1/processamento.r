@@ -6,7 +6,7 @@ library(scales)
 
 setwd('/home/pedro/Documents/USP/Mestrado/Pesquisa/mongo-test/analysis/experiments_test1/')
 
-results <- list.files(path='/home/pedro/Documents/USP/Mestrado/Pesquisa/mongo-test/analysis/experiments_test1/') %>% 
+results <- list.files(path='/home/pedro/Documents/USP/Mestrado/Pesquisa/mongo-test/analysis/experiments_test1/', pattern='.*csv') %>% 
   lapply(read_csv, show_col_types=FALSE) %>% 
   bind_rows 
 
@@ -19,11 +19,11 @@ confidence_interval = function(x) {
 }
 
 ### Lets start by comparing, for read-only scenarios, 200k records, preprocess vs rewrite, 10 versions
-#results_readonly = results[(results$update_percent == 0),]
+results_readonly = results[(results$update_percent == 0),]
 results_readheavy = results[(results$update_percent == 0.05),]
 results_50 = results[(results$update_percent == 0.5),]
 results_writeheavy = results[(results$update_percent == 0.95),]
-#results_writeonly = results[(results$update_percent == 1),]
+results_writeonly = results[(results$update_percent == 1),]
 
 generate_scenario = function (scenario, scenario_title) {
   scenario_mean = aggregate(scenario$operations_phase, list(scenario$number_of_operations, scenario$operation_mode), FUN=mean)
@@ -56,7 +56,7 @@ generate_scenario = function (scenario, scenario_title) {
     geom_ribbon(aes(x=number_of_operations, y=mean, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=rewrite) +
     geom_point(data=rewrite, aes(x = number_of_operations, y = mean, colour='rewrite'), size=3) + 
     
-    lab(title=scenario_title) +
+    ggtitle(scenario_title) +
     xlab('Number of insert/select Operations') + 
     ylab('Execution Time (s)') +
     scale_colour_manual('', breaks=c('preprocess','rewrite'), values=c('red','blue')) + 
@@ -70,11 +70,11 @@ generate_scenario = function (scenario, scenario_title) {
   
 }
 
-#generate_scenario(results_readonly, 'Read-Only')
+generate_scenario(results_readonly, 'Read-Only')
 generate_scenario(results_readheavy, 'Read-Heavy')
 generate_scenario(results_50, '50/50')
 generate_scenario(results_writeheavy, 'Write-Heavy')
-#generate_scenario(results_writeonly, 'Write-Only')
+generate_scenario(results_writeonly, 'Write-Only')
 
 #results_readonly = results[(results$update_percent == 0),]
 results_readheavy = results[(results$update_percent == 0.05),]

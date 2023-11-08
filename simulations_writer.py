@@ -1,14 +1,14 @@
 import itertools
 
-records = range(100000,600000, 100000)
-versions = range(5,20,5)
+records = [200000]
+versions = [5,10,15,20]
 fields = [20]
-repetitions = 5
-method='insertion_first'
+repetitions = 30
+method='operations_first'
 evolution_fields=[2]
-operations = range(100,1100,100)
-domain = [20,40]
-update_percent=[0,0.05,0.95,1]
+operations = [500]
+domain = [40]
+update_percent=[0,0.05,0.5,0.95,1]
 mode=['preprocess','rewrite']
 
 arguments = itertools.product(*[records,versions,fields,evolution_fields,operations,domain,update_percent,mode])
