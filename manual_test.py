@@ -14,16 +14,16 @@ import time
 
 # myCollection.collection.rewrite_query({'city':'Old Created City'})
 
-myCollection = BasicCollection('interscity', 'collectionTest', operation_mode='rewrite')  
-myCollection.insert_one('{"street":"A", "number":51}',datetime(2001,12,31))           
-myCollection.execute_operation('grouping',datetime(2003,5,26), {'fieldName':'number', 'oldValues':[51,252], 'newValue':500})        
-myCollection.execute_operation('translation',datetime(2005,5,26), {'fieldName':'number', 'oldValue':500, 'newValue':700})        
+# myCollection = BasicCollection('interscity', 'collectionTest', operation_mode='rewrite')  
+# myCollection.insert_one('{"street":"A", "number":51}',datetime(2001,12,31))           
+# myCollection.execute_operation('grouping',datetime(2003,5,26), {'fieldName':'number', 'oldValues':[51,252], 'newValue':500})        
+# myCollection.execute_operation('translation',datetime(2005,5,26), {'fieldName':'number', 'oldValue':500, 'newValue':700})        
 #myCollection.execute_operation('ungrouping',datetime(2003,5,26), {'fieldName':'number', 'oldValue':51, 'newValues':[500,999]})        
 #myCollection.execute_operation('translation',datetime(2007,5,26), {'fieldName':'number', 'oldValue':252, 'newValue':934})        
-myCollection.insert_one('{"street":"A", "number":500}',datetime(2004,12,31))        
+# myCollection.insert_one('{"street":"A", "number":500}',datetime(2004,12,31))        
 
 
-q = myCollection.find_many({'number':500})
+# q = myCollection.find_many({'number':500})
 #myCollection.collection.rewrite_query({'number':{'$in':51}})
 #myCollection.collection.rewrite_query({'$xor':[{'number':51},{'outro_campo':99}]})
 pass
@@ -49,11 +49,21 @@ pass
 # testeQuery = myCollection.find_many({'cidade' : 'Berlim'})
 # myCollection.pretty_print(testeQuery)
 
-#myCollection = BasicCollection('IBGE', 'estimativa_populacional')     
+myCollection = BasicCollection('sus', 'mortalidade', 'localhost','preprocess')     
 # translationOperation = TranslationOperation(myCollection)
 
 #startTime = time.time()
-#myCollection.insert_many_by_csv(os.path.join(os.path.dirname(__file__),'IBGE_Population/Estimativa_Populacao.csv'), 'RefDate')
+folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/mortalidade_ano'
+# for file in os.listdir(folder):
+#     myCollection.insert_many_by_csv(folder + '/' + file, 'RefDate')
+
+# myCollection.insert_many_by_csv(folder + '/' + 'mortalidade_9_processed_1995.csv', 'RefDate')
+# myCollection.insert_many_by_csv(folder + '/' + 'mortalidade_10_processed_1996.csv', 'RefDate')
+
+# pass
+
+query = myCollection.find_many({'cid':'35 Doenças do aparelho urinário','ano':1995})
+myCollection.pretty_print(query)
 
 #executionTime = (time.time() - startTim e)
 #print('Execution time for insertion: ' + str(executionTime))
