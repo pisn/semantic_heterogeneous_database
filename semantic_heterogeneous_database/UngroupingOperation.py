@@ -144,7 +144,7 @@ class UngroupingOperation:
             "to":newValues
         }
 
-        res = self.collection.collection_versions.update_one({'version_number': previous_version['version_number']}, {'$set' : {'next_operation': next_operation, 'next_version':new_version_number, 'next_version_valid_from' : validFromDate}})
+        res = self.collection.collection_versions.update_one({'version_number': previous_version['version_number']}, {'$set' : {'next_operation': next_operation, 'next_version':new_version_number, 'next_version_valid_from' : validFromDate, 'current_version':0}})
         
         if(res.matched_count != 1):
             print("Previous version not matched")
