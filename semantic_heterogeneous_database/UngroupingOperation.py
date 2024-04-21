@@ -182,7 +182,7 @@ class UngroupingOperation:
                                                                     ]
                                                             }, 
                                                             {'$set': {version_change['previous_operation']['field']: version_change['previous_operation']['to'], '_evoluted' : True},
-                                                            '$push' : {'_evolution_list':version_change['version_number']}
+                                                            '$push' : {'_evolution_list':version_change['_id']}
                                                             })   
 
                 ##Lets just append to evolution list to the original records altered
@@ -192,7 +192,7 @@ class UngroupingOperation:
                                                                     ]
                                                             }, 
                                                             {                                                            
-                                                                '$push' : {'_evolution_list':version_change['previous_version']}
+                                                                '$push' : {'_evolution_list':version_change['_id']}
                                                             })                                                        
             
 

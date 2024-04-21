@@ -185,7 +185,7 @@ class TranslationOperation:
                                                             }, 
                                                             {
                                                                 '$set': {version_change['next_operation']['field']: version_change['next_operation']['to'], '_evoluted' : True},
-                                                                '$push' : {'_evolution_list':version_change['version_number']}
+                                                                '$push' : {'_evolution_list':version_change['_id']}
                                                             })
                 
                 ##Lets just append to evolution list to the original records altered
@@ -195,7 +195,7 @@ class TranslationOperation:
                                                                     ]
                                                             }, 
                                                             {                                                            
-                                                                '$push' : {'_evolution_list':version_change['next_version']}
+                                                                '$push' : {'_evolution_list':version_change['_id']}
                                                             })
 
             versions = self.collection.collection_versions.find({'$and': [{'previous_operation.field' : fieldName},
@@ -210,7 +210,7 @@ class TranslationOperation:
                                                             }, 
                                                             {
                                                                 '$set': {version_change['previous_operation']['field']: version_change['previous_operation']['to'], '_evoluted' : True},
-                                                                '$push' : {'_evolution_list':version_change['version_number']}
+                                                                '$push' : {'_evolution_list':version_change['_id']}
                                                             })   
 
                 ##Lets just append to evolution list to the original records altered
@@ -220,7 +220,7 @@ class TranslationOperation:
                                                                     ]
                                                             }, 
                                                             {                                                            
-                                                                '$push' : {'_evolution_list':version_change['previous_version']}
+                                                                '$push' : {'_evolution_list':version_change['_id']}
                                                             })                                                        
             
 

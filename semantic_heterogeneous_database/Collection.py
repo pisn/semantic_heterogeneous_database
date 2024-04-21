@@ -618,26 +618,28 @@ class Collection:
                 versions = self.collection_versions.count_documents(q)
 
                 version_number = None
+                version_id=None
                 if(versions > 0):
                     versions = self.collection_versions.find(q).sort('version_number')
                     for version in versions:
                         fieldValue = version['next_operation']['to']
                         version_number = version['version_number']
+                        version_id = version['_id']
 
                         if isinstance(fieldValue, list):
                             for f in fieldValue:
-                                to_process.append((f, version_number))
+                                to_process.append((f, version_number, version_id))
                         else:
-                            to_process.append((fieldValue,version_number)) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query                        
+                            to_process.append((fieldValue,version_number, version_id)) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query                        
                 
                 if version_number == None:
                     queryTerms[field].add(fieldValue) 
                 else:
                     if isinstance(fieldValue, list):
                         for f in fieldValue:
-                            queryTerms[field].add((f,version_number))     
+                            queryTerms[field].add((f,version_number, version_id))     
                     else:
-                        queryTerms[field].add((fieldValue,version_number)) 
+                        queryTerms[field].add((fieldValue,version_number,version_id)) 
 
                 
         
@@ -648,7 +650,7 @@ class Collection:
 
             for value in queryTerms[field]:
                 if isinstance(value,tuple):
-                    ors.append({'$and':[{field:value[0]},{'_evolution_list':value[1]}]})
+                    ors.append({'$and':[{field:value[0]},{'_evolution_list':value[2]}]})
                 else:
                     ors.append({field:value})
 
@@ -681,26 +683,28 @@ class Collection:
                 
                 versions = self.collection_versions.count_documents(q)
                 version_number = None
+                version_id=None
                 if(versions > 0):
                     versions = self.collection_versions.find(q).sort('version_number', DESCENDING)
                     for version in versions:
                         fieldValue = version['previous_operation']['to']
                         version_number = version['version_number']
+                        version_id = version['_id']
 
                         if isinstance(fieldValue,list):
                             for f in fieldValue:
-                                to_process.append((f,version_number))
+                                to_process.append((f,version_number,version_id))
                         else:
-                            to_process.append((fieldValue,version_number)) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query                        
+                            to_process.append((fieldValue,version_number, version_id)) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query                        
                 
                 if version_number == None:
                     queryTerms[field].add(fieldValue) 
                 else:
                     if isinstance(fieldValue, list):
                         for f in fieldValue:
-                            queryTerms[field].add((f,version_number))     
+                            queryTerms[field].add((f,version_number,version_id))     
                     else:
-                        queryTerms[field].add((fieldValue,version_number)) 
+                        queryTerms[field].add((fieldValue,version_number, version_id)) 
 
                 
         
@@ -711,7 +715,7 @@ class Collection:
 
             for value in queryTerms[field]:
                 if isinstance(value,tuple):
-                    ors.append({'$and':[{field:value[0]},{'_evolution_list':value[1]}]})
+                    ors.append({'$and':[{field:value[0]},{'_evolution_list':value[2]}]})
                 else:
                     ors.append({field:value})
 
