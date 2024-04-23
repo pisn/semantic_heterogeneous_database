@@ -75,7 +75,8 @@ generate_scenario = function (scenario, scenario_title) {
     scale_colour_manual('', breaks=c('read_only','read_heavy','50/50','write_heavy','write_only'), values=c('red','orange','violet','purple','blue')) + 
     scale_x_continuous(breaks=seq(100,1000,100)) +
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
-          legend.position = c(.05, .95),
+          #legend.position = c(.05, .95),
+          legend.position = "bottom",
           legend.justification = c("left", "top"),
           legend.box.just = "left",
           legend.margin = margin(6, 6, 6, 6),

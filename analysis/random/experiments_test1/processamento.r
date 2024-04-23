@@ -76,9 +76,3 @@ generate_scenario(results_50, '50/50')
 generate_scenario(results_writeheavy, 'Write-Heavy')
 generate_scenario(results_writeonly, 'Write-Only')
 
-#results_readonly = results[(results$update_percent == 0),]
-results_readheavy = results[(results$update_percent == 0.05),]
-results_50 = results[(results$update_percent == 0.5),]
-results_writeheavy = results[(results$update_percent == 0.95),]
-#results_writeonly = results[(results$update_percent == 1),]
-

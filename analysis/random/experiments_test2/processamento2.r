@@ -76,6 +76,7 @@ generate_scenario = function (scenario, scenario_title) {
     scale_x_continuous(breaks=seq(100,1000,100)) +
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = c(.05, .95),
+          #legend.position = "bottom",
           legend.justification = c("left", "top"),
           legend.box.just = "left",
           legend.margin = margin(6, 6, 6, 6),
