@@ -204,7 +204,7 @@ class GroupingOperation:
                                                                     {version_change['previous_operation']['field'] : version_change['previous_operation']['from']},                                                                 
                                                                     ]
                                                             }, 
-                                                            {'$set': {version_change['previous_operation']['field']: ' or '.join(str(version_change['previous_operation']['to'])) + ' (grouped)', '_evoluted' : True},
+                                                            {'$set': {version_change['previous_operation']['field']: version_change['previous_operation']['to'], '_evoluted' : True},
                                                             '$push' : {'_evolution_list':version_change['_id']}
                                                             })   
 

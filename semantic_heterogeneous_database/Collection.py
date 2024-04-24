@@ -2,6 +2,7 @@ import time
 import pandas as pd
 import numpy as np
 from pymongo import MongoClient, ASCENDING,DESCENDING
+from bson.objectid import ObjectId
 from datetime import datetime
 import json
 import csv
@@ -650,7 +651,7 @@ class Collection:
 
             for value in queryTerms[field]:
                 if isinstance(value,tuple):
-                    ors.append({'$and':[{field:value[0]},{'_evolution_list':value[2]}]})
+                    ors.append({'$and':[{field:value[0]},{'_evolution_list':ObjectId(value[2])}]})
                 else:
                     ors.append({field:value})
 
@@ -715,7 +716,7 @@ class Collection:
 
             for value in queryTerms[field]:
                 if isinstance(value,tuple):
-                    ors.append({'$and':[{field:value[0]},{'_evolution_list':value[2]}]})
+                    ors.append({'$and':[{field:value[0]},{'_evolution_list':ObjectId(value[2])}]})
                 else:
                     ors.append({field:value})
 
