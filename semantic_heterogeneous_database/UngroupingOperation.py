@@ -176,13 +176,16 @@ class UngroupingOperation:
                                                         ]}).sort('previous_version_valid_from',DESCENDING)
 
             for version_change in versions:            
+                previous_versions = self.collection.collection_versions.find({'version_number':version_change['previous_version']})
+                previous_version_rec = previous_versions[0]
+
                 res = self.collection.collection_processed.update_many({'$and':[{'_max_version_number':{'$lte' : version_change['previous_version']}},
                                                                     {'_valid_from' : {'$gte': version_change['previous_version_valid_from']}},
                                                                     {version_change['previous_operation']['field'] : {'$in' : version_change['previous_operation']['from']}},                                                                 
                                                                     ]
                                                             }, 
                                                             {'$set': {version_change['previous_operation']['field']: version_change['previous_operation']['to'], '_evoluted' : True},
-                                                            '$push' : {'_evolution_list':version_change['_id']}
+                                                            '$push' : {'_evolution_list':previous_version_rec['_id']}
                                                             })   
 
                 ##Lets just append to evolution list to the original records altered
@@ -192,7 +195,7 @@ class UngroupingOperation:
                                                                     ]
                                                             }, 
                                                             {                                                            
-                                                                '$push' : {'_evolution_list':version_change['_id']}
+                                                                '$push' : {'_evolution_list':previous_version_rec['_id']}
                                                             })                                                        
             
 
