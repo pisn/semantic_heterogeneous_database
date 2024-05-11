@@ -600,7 +600,7 @@ class Collection:
         
         for field in QueryString.keys():             
             queryTerms[field] = set()
-            queryTerms[field].add(QueryString[field])
+            queryTerms[field].add(json.dumps(QueryString[field]))
 
             to_process = []
             to_process.append(QueryString[field])
@@ -634,13 +634,19 @@ class Collection:
                             to_process.append((fieldValue,version_number, version_id)) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query                        
                 
                 if version_number == None:
+                    if isinstance(fieldValue, dict):
+                        fieldValue = str(fieldValue)
                     queryTerms[field].add(fieldValue) 
                 else:
                     if isinstance(fieldValue, list):
                         for f in fieldValue:
-                            queryTerms[field].add((f,version_number, version_id))     
+                            if isinstance(f, dict):
+                                f = str(f)
+                            queryTerms[field].add((f,version_number,version_id))     
                     else:
-                        queryTerms[field].add((fieldValue,version_number,version_id)) 
+                        if isinstance(fieldValue, dict):
+                            fieldValue = str(fieldValue)
+                        queryTerms[field].add((fieldValue,version_number, version_id))
 
                 
         
@@ -666,7 +672,7 @@ class Collection:
         
         for field in QueryString.keys():             
             queryTerms[field] = set()
-            queryTerms[field].add(QueryString[field])
+            queryTerms[field].add(json.dumps(QueryString[field]))
 
             to_process = []
             to_process.append(QueryString[field])
@@ -699,12 +705,18 @@ class Collection:
                             to_process.append((fieldValue,version_number, version_id)) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query                        
                 
                 if version_number == None:
-                    queryTerms[field].add(fieldValue) 
+                    if isinstance(fieldValue, dict):
+                        fieldValue = str(fieldValue)
+                    queryTerms[field].add(str(fieldValue)) 
                 else:
                     if isinstance(fieldValue, list):
                         for f in fieldValue:
+                            if isinstance(f, dict):
+                                f = str(f)
                             queryTerms[field].add((f,version_number,version_id))     
                     else:
+                        if isinstance(fieldValue, dict):
+                            fieldValue = str(fieldValue)
                         queryTerms[field].add((fieldValue,version_number, version_id)) 
 
                 
