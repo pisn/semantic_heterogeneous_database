@@ -599,8 +599,8 @@ class Collection:
         queryTerms = {}        
         
         for field in QueryString.keys():             
-            queryTerms[field] = set()
-            queryTerms[field].add(json.dumps(QueryString[field]))
+            queryTerms[field] = list()            
+            queryTerms[field].append(QueryString[field])
 
             to_process = []
             to_process.append(QueryString[field])
@@ -633,26 +633,20 @@ class Collection:
                         else:
                             to_process.append((fieldValue,version_number, version_id)) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query                        
                 
-                if version_number == None:
-                    if isinstance(fieldValue, dict):
-                        fieldValue = str(fieldValue)
-                    queryTerms[field].add(fieldValue) 
+                if version_number == None:                    
+                    queryTerms[field].append(fieldValue) 
                 else:
                     if isinstance(fieldValue, list):
-                        for f in fieldValue:
-                            if isinstance(f, dict):
-                                f = str(f)
-                            queryTerms[field].add((f,version_number,version_id))     
-                    else:
-                        if isinstance(fieldValue, dict):
-                            fieldValue = str(fieldValue)
-                        queryTerms[field].add((fieldValue,version_number, version_id))
+                        for f in fieldValue:                            
+                            queryTerms[field].append((f,version_number,version_id))     
+                    else:                        
+                        queryTerms[field].append((fieldValue,version_number, version_id))
 
                 
         
         ands = []
 
-        for field in queryTerms.keys():
+        for field in queryTerms:
             ors = []
 
             for value in queryTerms[field]:
@@ -671,8 +665,8 @@ class Collection:
         queryTerms = {}        
         
         for field in QueryString.keys():             
-            queryTerms[field] = set()
-            queryTerms[field].add(json.dumps(QueryString[field]))
+            queryTerms[field] = list()
+            queryTerms[field].append(QueryString[field])
 
             to_process = []
             to_process.append(QueryString[field])
@@ -704,26 +698,20 @@ class Collection:
                         else:
                             to_process.append((fieldValue,version_number, version_id)) #besides from the original query, this value could also represent a record that were translated in the past from the original query term. Therefore, it must be considered in the query                        
                 
-                if version_number == None:
-                    if isinstance(fieldValue, dict):
-                        fieldValue = str(fieldValue)
-                    queryTerms[field].add(str(fieldValue)) 
+                if version_number == None:                    
+                    queryTerms[field].append(fieldValue)
                 else:
                     if isinstance(fieldValue, list):
-                        for f in fieldValue:
-                            if isinstance(f, dict):
-                                f = str(f)
-                            queryTerms[field].add((f,version_number,version_id))     
-                    else:
-                        if isinstance(fieldValue, dict):
-                            fieldValue = str(fieldValue)
-                        queryTerms[field].add((fieldValue,version_number, version_id)) 
+                        for f in fieldValue:                            
+                            queryTerms[field].append((f,version_number,version_id))     
+                    else:                        
+                        queryTerms[field].append((fieldValue,version_number, version_id)) 
 
                 
         
         ands = []
 
-        for field in queryTerms.keys():
+        for field in queryTerms:
             ors = []
 
             for value in queryTerms[field]:
