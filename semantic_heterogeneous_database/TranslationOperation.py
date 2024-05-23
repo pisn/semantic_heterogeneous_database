@@ -157,7 +157,7 @@ class TranslationOperation:
 
             res = self.collection.collection_versions.update_one({'version_number': next_version['version_number']},{'$set':{'previous_version':new_version_number}})        
             if(res.matched_count != 1):
-                print("Next version not matched")
+                print("Next version not matched")            
 
         # column = self.collection.collection_columns.find_one({'field_name':fieldName}) 
         # if column['last_edit_version'] < new_version_number:
@@ -165,7 +165,10 @@ class TranslationOperation:
         # elif column['first_edit_version'] < new_version_number:
         #     self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'first_edit_version' : new_version_number}})        
 
-        self.collection.collection_versions.insert_one(new_version)            
+        i = self.collection.collection_versions.insert_one(new_version)
+
+        if next_version != None:
+            self.collection.collection_processed.update_many({'_evolution_list':previous_version['_id']}, {'$push' : {'_evolution_list':i.inserted_id}})
         
         self.collection.update_versions()
 
