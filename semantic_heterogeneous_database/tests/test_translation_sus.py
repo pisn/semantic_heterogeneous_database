@@ -6,7 +6,7 @@ class TranslationSusTest(TestBase):
     def test_translation_sus(self):       
         collection = self.SusCollection        
         collection.execute_operation('translation',datetime(1996,1,1), {'fieldName':'cid', 'oldValue':'191 Marasmo nutricional', 'newValue':'056 Desnutrição'})        
-        collection.execute_operation('translation',datetime(1996,1,2), {'fieldName':'cid', 'oldValue':'038 Septicemia', 'newValue':'014 Septicemia'})        
+        collection.execute_operation('translation',datetime(1996,1,1), {'fieldName':'cid', 'oldValue':'038 Septicemia', 'newValue':'014 Septicemia'})        
         
         query = self.SusCollection.find_many({'UF':'SP','municipio':'355030 SAO PAULO','cid':'191 Marasmo nutricional','ano':1995})        
         self.assertEqual(query[0]['ocorrencias'],14,"Os 14 óbitos por Marasmo Nutricional em 1995 deveriam continuar aparecendo (query original)")
