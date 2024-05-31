@@ -158,7 +158,10 @@ class UngroupingOperation:
             if(res.matched_count != 1):
                 print("Next version not matched")
 
-        self.collection.collection_versions.insert_one(new_version)    
+        i = self.collection.collection_versions.insert_one(new_version)
+
+        if next_version != None:
+            self.collection.collection_processed.update_many({'_evolution_list':previous_version['_id']}, {'$push' : {'_evolution_list':i.inserted_id}})
 
 
         if self.collection.operation_mode == 'preprocess':
