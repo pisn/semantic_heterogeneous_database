@@ -588,8 +588,13 @@ class Collection:
 
         records = list(self.collection.find(finalQuery))
 
-        final_result = self.__transform_results(records, transformation_df)
-        final_result = final_result.to_dict('records')
+        if len(records) >0:
+            records = self.__transform_results(records, transformation_df)      
+        else:
+            records = pd.DataFrame(records)      
+        
+        final_result = records.to_dict('records')
+            
         
         return final_result
     
