@@ -165,16 +165,15 @@ class TranslationOperation:
         # elif column['first_edit_version'] < new_version_number:
         #     self.collection.collection_columns.update_one({'field_name':fieldName}, {'$set' : {'first_edit_version' : new_version_number}})        
 
-        i = self.collection.collection_versions.insert_one(new_version)
-
-        if next_version != None:
-            self.collection.collection_processed.update_many({'_evolution_list':previous_version['_id']}, {'$push' : {'_evolution_list':i.inserted_id}})
+        i = self.collection.collection_versions.insert_one(new_version)        
         
         self.collection.update_versions()
 
         ##Update value of processed versions
 
         if self.collection.operation_mode == 'preprocess':
+            if next_version != None:
+                self.collection.collection_processed.update_many({'_evolution_list':previous_version['_id']}, {'$push' : {'_evolution_list':i.inserted_id}})
 
             versions = self.collection.collection_versions.find({'$and': [{'next_operation.field' : fieldName},
                                                         {'next_operation.type' : 'translation'}                                                      
