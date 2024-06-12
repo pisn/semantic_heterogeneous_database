@@ -337,10 +337,14 @@ class Collection:
                 
                 if(versions > 0): ##Existe alguma coisa a ser processada sobre este campo ainda                    
                     versions = self.collection_versions.find(q).sort('version_number')
+                    ## Not all the changes in this field might match the queried values. Therefore, we cannot only use all "previous start date"
+                    ## for any file in the field
+                    
+
                     for version in versions:
                         next_fieldValue = version['next_operation']['to']
                         version_number = version['version_number']
-                        version_start = version['next_version_valid_from']                        
+                        version_end = datetime(2300,1,1)
                         p_version_start = version['version_valid_from']
 
                         
@@ -348,17 +352,21 @@ class Collection:
                         if isinstance(next_fieldValue,list):
                             next_fieldValues = next_fieldValue
                         else:
-                            next_fieldValues = [next_fieldValue]
-
+                            next_fieldValues = [next_fieldValue]                        
 
                         for next_fieldValue in next_fieldValues:
                             if isinstance(fieldValueRaw, dict):
                                 next_fieldValue = json.dumps(fieldValueRaw).replace(str(fieldValueQ), str(next_fieldValue))
                                 next_fieldValue = json.loads(next_fieldValue)
 
+                            ##We need to check the next version after this to determine if the start of the version is the end of the previous version                        
+                            next_next_version = self.collection_versions.find_one({'version_number':version['next_version']})
+                            if next_next_version.get('next_operation',None) != None and next_next_version['next_operation']['from'] == next_fieldValue:
+                                version_end = next_next_version['next_version_valid_from']
+
                             #besides from the original value, this value also represents a record that was translated in the past 
                             # from the original query term. Therefore, it must be considered in the query                        
-                            to_process.append((next_fieldValue,version_number, p_version_start, version_start, fieldValueQ)) 
+                            to_process.append((next_fieldValue,version_number, p_version_start, version_end, fieldValueQ)) 
                 
 
     def __rewrite_queryterms_backward(self, QueryString, queryTerms):
