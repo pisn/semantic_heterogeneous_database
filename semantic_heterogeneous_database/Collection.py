@@ -311,6 +311,9 @@ class Collection:
                         keys = list(fieldValueQ.keys())
                         if isinstance(fieldValueQ[keys[0]], dict):
                             fieldValueQ = fieldValueQ[keys[0]]
+                        elif keys[0][0] == '$':
+                            fieldValueQ = fieldValueRaw
+                            break
                         else:
                             fieldValueQ = fieldValueQ[keys[0]]                    
 
@@ -327,6 +330,9 @@ class Collection:
                         keys = list(fieldValueQ.keys())
                         if isinstance(fieldValueQ[keys[0]], dict):
                             fieldValueQ = fieldValueQ[keys[0]]
+                        elif keys[0][0] == '$':
+                            fieldValueQ = fieldValueRaw
+                            break
                         else:
                             fieldValueQ = fieldValueQ[keys[0]]                                        
                     
@@ -342,6 +348,7 @@ class Collection:
                     
 
                     for version in versions:
+                        previous_fieldValue = version['next_operation']['from']
                         next_fieldValue = version['next_operation']['to']
                         version_number = version['version_number']
                         version_end = datetime(2300,1,1)
@@ -356,7 +363,7 @@ class Collection:
 
                         for next_fieldValue in next_fieldValues:
                             if isinstance(fieldValueRaw, dict):
-                                next_fieldValue = json.dumps(fieldValueRaw).replace(str(fieldValueQ), str(next_fieldValue))
+                                next_fieldValue = json.dumps(fieldValueRaw).replace(str(previous_fieldValue), str(next_fieldValue))
                                 next_fieldValue = json.loads(next_fieldValue)
 
                             ##We need to check the next version after this to determine if the start of the version is the end of the previous version                        
