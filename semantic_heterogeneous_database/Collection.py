@@ -302,10 +302,12 @@ class Collection:
                     p_version_start = fieldValue[2]                
                     version_start = fieldValue[3]   
                     valueOrigin = fieldValue[4]             
-                    fieldValueQ = fieldValueRaw    
+                    fieldValueQ = fieldValueRaw                        
+                    valueOriginOriginal = fieldValue[5]
+                    fieldValueOriginal = fieldValue[6]
 
                     ## node in stack already represents a condition to rewrite
-                    queryTerms[field].append((fieldValueRaw, p_version_start, version_start, valueOrigin, 'forward'))                
+                    queryTerms[field].append((fieldValueRaw, p_version_start, version_start, valueOrigin, 'forward', valueOriginOriginal,fieldValueOriginal))                
 
                     while isinstance(fieldValueQ, dict):                        
                         keys = list(fieldValueQ.keys())
@@ -320,7 +322,7 @@ class Collection:
                     q = {'next_operation.field':field,'next_operation.from':fieldValueQ, 'version_number':{'$gt': fieldValue[1]}}                    
                 else:                    
                     fieldValueRaw = fieldValue
-                    fieldValueQ = fieldValueRaw                    
+                    fieldValueQ = fieldValueRaw                                        
 
                     next_fieldValue = None
                     version_number = None
@@ -362,18 +364,21 @@ class Collection:
                             next_fieldValues = [next_fieldValue]                        
 
                         for next_fieldValue in next_fieldValues:
+                            ##The next_fieldValue will remain as a list or static value to be used in transformations after the query
+                            ##while the next_fieldValue_processed will be the value to be used in the query itself
+                            next_fieldValue_processed = next_fieldValue  
                             if isinstance(fieldValueRaw, dict):
-                                next_fieldValue = json.dumps(fieldValueRaw).replace(str(previous_fieldValue), str(next_fieldValue))
-                                next_fieldValue = json.loads(next_fieldValue)
+                                next_fieldValue_processed = json.dumps(fieldValueRaw).replace(str(previous_fieldValue), str(next_fieldValue_processed))
+                                next_fieldValue_processed = json.loads(next_fieldValue_processed)
 
                             ##We need to check the next version after this to determine if the start of the version is the end of the previous version                        
                             next_next_version = self.collection_versions.find_one({'version_number':version['next_version']})
-                            if next_next_version.get('next_operation',None) != None and next_next_version['next_operation']['from'] == next_fieldValue:
+                            if next_next_version.get('next_operation',None) != None and next_next_version['next_operation']['from'] == next_fieldValue_processed:
                                 version_end = next_next_version['next_version_valid_from']
 
                             #besides from the original value, this value also represents a record that was translated in the past 
                             # from the original query term. Therefore, it must be considered in the query                        
-                            to_process.append((next_fieldValue,version_number, p_version_start, version_end, fieldValueQ)) 
+                            to_process.append((next_fieldValue_processed,version_number, p_version_start, version_end, fieldValueQ,previous_fieldValue, next_fieldValue)) 
                 
 
     def __rewrite_queryterms_backward(self, QueryString, queryTerms):
@@ -406,15 +411,20 @@ class Collection:
                     p_version_start = fieldValue[2]                
                     version_start = fieldValue[3] 
                     valueOrigin = fieldValue[4]
-                    fieldValueQ = fieldValueRaw                    
+                    fieldValueQ = fieldValueRaw  
+                    valueOriginOriginal = fieldValue[5]
+                    fieldValueOriginal = fieldValue[6]
 
                     ## node in stack already represents a condition to rewrite
-                    queryTerms[field].append((fieldValueRaw, p_version_start, version_start, valueOrigin, 'backward'))
+                    queryTerms[field].append((fieldValueRaw, p_version_start, version_start, valueOrigin, 'backward', valueOriginOriginal, fieldValueOriginal))
 
                     while isinstance(fieldValueQ, dict):                        
                         keys = list(fieldValueQ.keys())
                         if isinstance(fieldValueQ[keys[0]], dict):
                             fieldValueQ = fieldValueQ[keys[0]]
+                        elif keys[0][0] == '$':
+                            fieldValueQ = fieldValueRaw
+                            break
                         else:
                             fieldValueQ = fieldValueQ[keys[0]]                    
 
@@ -431,6 +441,9 @@ class Collection:
                         keys = list(fieldValueQ.keys())
                         if isinstance(fieldValueQ[keys[0]], dict):
                             fieldValueQ = fieldValueQ[keys[0]]
+                        elif keys[0][0] == '$':
+                            fieldValueQ = fieldValueRaw
+                            break
                         else:
                             fieldValueQ = fieldValueQ[keys[0]]                    
                     
@@ -443,6 +456,7 @@ class Collection:
                 if(versions > 0): ##Existe alguma coisa a ser processada sobre este campo ainda                    
                     versions = self.collection_versions.find(q).sort('version_number')
                     for version in versions:
+                        previous_from_fieldValue = version['previous_operation']['from']
                         previous_fieldValue = version['previous_operation']['to']
                         version_number = version['version_number']
                         version_start = version['version_valid_from']
@@ -457,13 +471,16 @@ class Collection:
 
 
                         for previous_fieldValue in previous_fieldValues:
+                            ##The previous_fieldValue will remain as a list or static value to be used in transformations after the query
+                            ##while the previous_fieldValue_processed will be the value to be used in the query itself
+                            previous_fieldValue_processed = previous_fieldValue
                             if isinstance(fieldValueRaw, dict):
-                                previous_fieldValue = json.dumps(fieldValueRaw).replace(str(fieldValueQ), str(previous_fieldValue))
-                                previous_fieldValue = json.loads(previous_fieldValue)
+                                previous_fieldValue_processed = json.dumps(fieldValueRaw).replace(str(previous_from_fieldValue), str(previous_fieldValue_processed))
+                                previous_fieldValue_processed = json.loads(previous_fieldValue_processed)
 
                             #besides from the original value, this value also represents a record that was translated in the past 
                             # from the original query term. Therefore, it must be considered in the query                        
-                            to_process.append((previous_fieldValue,version_number, p_version_start, version_start, fieldValueQ))                            
+                            to_process.append((previous_fieldValue_processed,version_number, p_version_start, version_start, fieldValueQ, previous_from_fieldValue, previous_fieldValue))
                     
 
     def __assemble_query(self, key, valueSet):        
@@ -509,8 +526,8 @@ class Collection:
                     'start': value[1],
                     'end': value[2],
                     'field': key,
-                    'from':value[3],
-                    'to': value[0],
+                    'from':value[5],
+                    'to': value[6], #Using the original value of transformation
                     'direction': value[4]
                 })               
             
