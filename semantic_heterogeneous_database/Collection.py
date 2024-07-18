@@ -6,6 +6,7 @@ from bson.objectid import ObjectId
 from datetime import datetime
 import json
 import csv
+import re
 
 class Collection:
     def __init__ (self,DatabaseName, CollectionName, Host='localhost', operation_mode='preprocess'):       
@@ -271,6 +272,16 @@ class Collection:
         return {'$or':[forward, backward]}
 
 #################################### QUERY REWRITING #######################################################################
+    def __check_regex(self, query_dict, previous_fieldValue, next_fieldValue):
+        query_dict = query_dict.copy()
+        for key in list(query_dict.keys()):
+            if '$regex' in key:
+                expression = f'.*{query_dict[key]}.*'
+                if re.match(expression, previous_fieldValue):                    
+                    new_value = re.sub(expression, next_fieldValue, query_dict[key])
+                    query_dict.pop(key)                    
+                    query_dict['$in'] = [new_value]            
+        return query_dict
 
     def __rewrite_queryterms_forward(self, QueryString, queryTerms):
 
@@ -368,6 +379,8 @@ class Collection:
                             ##while the next_fieldValue_processed will be the value to be used in the query itself
                             next_fieldValue_processed = next_fieldValue  
                             if isinstance(fieldValueRaw, dict):
+                                fieldValueRaw = self.__check_regex(fieldValueRaw, previous_fieldValue, next_fieldValue_processed)
+
                                 next_fieldValue_processed = json.dumps(fieldValueRaw).replace(str(previous_fieldValue), str(next_fieldValue_processed))
                                 next_fieldValue_processed = json.loads(next_fieldValue_processed)
 
@@ -475,6 +488,8 @@ class Collection:
                             ##while the previous_fieldValue_processed will be the value to be used in the query itself
                             previous_fieldValue_processed = previous_fieldValue
                             if isinstance(fieldValueRaw, dict):
+                                fieldValueRaw = self.__check_regex(fieldValueRaw, previous_from_fieldValue, previous_fieldValue_processed)
+
                                 previous_fieldValue_processed = json.dumps(fieldValueRaw).replace(str(previous_from_fieldValue), str(previous_fieldValue_processed))
                                 previous_fieldValue_processed = json.loads(previous_fieldValue_processed)
 
