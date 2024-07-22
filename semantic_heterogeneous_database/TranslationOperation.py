@@ -8,6 +8,8 @@ import pandas as pd
 class TranslationOperation:
     def __init__(self, Collection_):
         self.collection = Collection_.collection
+        self.forward_processable = True
+        self.backward_processable = True
 
     def execute_operation(self, validFromDate:datetime, args:dict):
         if 'oldValue' not in args:

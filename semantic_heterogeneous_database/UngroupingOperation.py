@@ -7,6 +7,8 @@ from pymongo import MongoClient, ASCENDING, DESCENDING
 class UngroupingOperation:
     def __init__(self, Collection_):
         self.collection = Collection_.collection
+        self.forward_processable = True
+        self.backward_processable = False
 
     def execute_operation(self, validFromDate:datetime, args:dict):
         if 'oldValue' not in args:

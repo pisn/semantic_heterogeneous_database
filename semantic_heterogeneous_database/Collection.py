@@ -361,6 +361,11 @@ class Collection:
                     
 
                     for version in versions:
+                        operation_type = version['next_operation']['type']
+                        
+                        if not self.semantic_operations[operation_type].forward_processable:
+                            continue
+
                         previous_fieldValue = version['next_operation']['from']
                         next_fieldValue = version['next_operation']['to']
                         version_number = version['version_number']
@@ -469,6 +474,11 @@ class Collection:
                 if(versions > 0): ##Existe alguma coisa a ser processada sobre este campo ainda                    
                     versions = self.collection_versions.find(q).sort('version_number')
                     for version in versions:
+                        operation_type = version['previous_operation']['type']
+                        
+                        if not self.semantic_operations[operation_type].backward_processable:
+                            continue
+
                         previous_from_fieldValue = version['previous_operation']['from']
                         previous_fieldValue = version['previous_operation']['to']
                         version_number = version['version_number']
@@ -675,9 +685,14 @@ class Collection:
                 if(versions > 0):
                     versions = self.collection_versions.find(q).sort('version_number')
                     for version in versions:
+                        operation_type = version['next_operation']['type']
+                        
+                        if not self.semantic_operations[operation_type].forward_processable:
+                            continue
+
                         fieldValue = version['next_operation']['to']
                         version_number = version['version_number']
-                        version_id = version['_id']
+                        version_id = version['_id']                        
 
                         if isinstance(fieldValue, list):
                             for f in fieldValue:
@@ -740,9 +755,14 @@ class Collection:
                 if(versions > 0):
                     versions = self.collection_versions.find(q).sort('version_number', DESCENDING)
                     for version in versions:
+                        operation_type = version['previous_operation']['type']
+                        
+                        if not self.semantic_operations[operation_type].backward_processable:
+                            continue
+                        
                         fieldValue = version['previous_operation']['to']
                         version_number = version['version_number']
-                        version_id = version['_id']
+                        version_id = version['_id']                        
 
                         if isinstance(fieldValue,list):
                             for f in fieldValue:
