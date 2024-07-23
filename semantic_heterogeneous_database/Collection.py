@@ -383,10 +383,12 @@ class Collection:
                             ##The next_fieldValue will remain as a list or static value to be used in transformations after the query
                             ##while the next_fieldValue_processed will be the value to be used in the query itself
                             next_fieldValue_processed = next_fieldValue  
-                            if isinstance(fieldValueRaw, dict):
-                                fieldValueRaw = self.__check_regex(fieldValueRaw, previous_fieldValue, next_fieldValue_processed)
+                            fieldValueRaw_copy = fieldValueRaw #Creating a copy in case regex applies to a list. Original value cannot be ovewritten
 
-                                next_fieldValue_processed = json.dumps(fieldValueRaw).replace(str(previous_fieldValue), str(next_fieldValue_processed))
+                            if isinstance(fieldValueRaw, dict):
+                                fieldValueRaw_copy = self.__check_regex(fieldValueRaw, previous_fieldValue, next_fieldValue_processed)
+
+                                next_fieldValue_processed = json.dumps(fieldValueRaw_copy).replace(str(previous_fieldValue), str(next_fieldValue_processed))
                                 next_fieldValue_processed = json.loads(next_fieldValue_processed)
 
                             ##We need to check the next version after this to determine if the start of the version is the end of the previous version                        
@@ -497,10 +499,11 @@ class Collection:
                             ##The previous_fieldValue will remain as a list or static value to be used in transformations after the query
                             ##while the previous_fieldValue_processed will be the value to be used in the query itself
                             previous_fieldValue_processed = previous_fieldValue
+                            fieldValueRaw_copy = fieldValueRaw #Creating a copy in case regex applies to a list. Original value cannot be ovewritten
                             if isinstance(fieldValueRaw, dict):
-                                fieldValueRaw = self.__check_regex(fieldValueRaw, previous_from_fieldValue, previous_fieldValue_processed)
+                                fieldValueRaw_copy = self.__check_regex(fieldValueRaw, previous_from_fieldValue, previous_fieldValue_processed)
 
-                                previous_fieldValue_processed = json.dumps(fieldValueRaw).replace(str(previous_from_fieldValue), str(previous_fieldValue_processed))
+                                previous_fieldValue_processed = json.dumps(fieldValueRaw_copy).replace(str(previous_from_fieldValue), str(previous_fieldValue_processed))
                                 previous_fieldValue_processed = json.loads(previous_fieldValue_processed)
 
                             #besides from the original value, this value also represents a record that was translated in the past 
