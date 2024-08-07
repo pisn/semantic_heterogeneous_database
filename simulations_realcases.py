@@ -97,7 +97,7 @@ def insert_first():
         print('Inserting file:', file)
         file_path = os.path.join(temp_destination, file)
         collection.insert_many_by_csv(file_path, date_columns)
-        break
+        #break
 
     shutil.rmtree(temp_destination)
     
