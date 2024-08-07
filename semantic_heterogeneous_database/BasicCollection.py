@@ -42,7 +42,4 @@ class BasicCollection:
         self.collection.execute_operation(operationType, validFrom, args)
 
     def execute_many_operations_by_csv(self, filePath, operationTypeColumn, validFromField):
-        self.collection.execute_many_operations_by_csv(filePath, operationTypeColumn, validFromField)
-
-    def lazy_update_documents(self):
-        return self.collection.find_many({'_id':0}) ##Qualquer query executa as evoluções semânticas pendentes
+        self.collection.execute_many_operations_by_csv(filePath, operationTypeColumn, validFromField)    

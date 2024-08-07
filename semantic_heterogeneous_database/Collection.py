@@ -885,13 +885,17 @@ class Collection:
         operation.execute_operation(validFromDate=validFrom, args=args)
 
     def execute_many_operations_by_csv(self, filePath, operationTypeColumn, validFromColumn):
-        with open(filePath, 'r') as csvFile:
-            reader = csv.DictReader(csvFile)
+        operations = pd.read_csv(filePath, sep=';')      
 
-            for row in reader:
-                operationType = row[operationTypeColumn]
-                operation = self.semantic_operations[operationType]
-                operation.execute_operation(validFromDate=datetime.strptime(row[validFromColumn], '%Y-%m-%d'), args=row)
+        for index, row in operations.loc[operations['type']=='translation'].iterrows():
+            self.execute_operation('translation', datetime.strptime(row['valid_from'], '%Y-%m-%d'), {'fieldName':row['field'], 'oldValue':row['from'], 'newValue':row['to']})
+
+        for group in operations.loc[operations['type']=='grouping'].groupby(['to','valid_from','field']):
+            self.execute_operation('grouping', datetime.strptime(group[0][1], '%Y-%m-%d'), {'fieldName':group[0][2], 'oldValues':list(group[1]['from'].values), 'newValue':group[0][0]})
+
+        for group in operations.loc[operations['type']=='ungrouping'].groupby(['from','valid_from','field']):
+            self.execute_operation('ungrouping', datetime.strptime(group[0][1], '%Y-%m-%d'), {'fieldName':group[0][2], 'oldValue':group[0][0], 'newValues':list(group[1]['to'].values)})
+
 
     def pretty_print(self, recordsCursor):
         """ Pretty print the records in the console. Semantic changes will be presented in the format "CurrentValue (originally: OriginalValue)"
