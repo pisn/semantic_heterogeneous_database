@@ -889,12 +889,15 @@ class Collection:
 
         for index, row in operations.loc[operations['type']=='translation'].iterrows():
             self.execute_operation('translation', datetime.strptime(row['valid_from'], '%Y-%m-%d'), {'fieldName':row['field'], 'oldValue':row['from'], 'newValue':row['to']})
+            break
 
         for group in operations.loc[operations['type']=='grouping'].groupby(['to','valid_from','field']):
             self.execute_operation('grouping', datetime.strptime(group[0][1], '%Y-%m-%d'), {'fieldName':group[0][2], 'oldValues':list(group[1]['from'].values), 'newValue':group[0][0]})
+            break
 
         for group in operations.loc[operations['type']=='ungrouping'].groupby(['from','valid_from','field']):
             self.execute_operation('ungrouping', datetime.strptime(group[0][1], '%Y-%m-%d'), {'fieldName':group[0][2], 'oldValue':group[0][0], 'newValues':list(group[1]['to'].values)})
+            break
 
 
     def pretty_print(self, recordsCursor):

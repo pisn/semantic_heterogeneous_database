@@ -6,6 +6,7 @@ import json
 import random
 import math
 import pandas as pd
+from datetime import datetime
 from pymongo import MongoClient
 from database_generator import DatabaseGenerator
 from semantic_heterogeneous_database import BasicCollection
@@ -44,6 +45,9 @@ source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasu
 date_columns = 'ano'
 csv_destination = 'teste.csv'
 operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
+number_of_operations = 100
+percent_of_heterogeneous_queries = 0.3
+percent_of_insertions = 0.3
 
 if method != 'insertion_first' and method != 'operations_first':
     raise BaseException('Method not implemented')
@@ -51,67 +55,129 @@ if method != 'insertion_first' and method != 'operations_first':
 host = 'localhost'
 performance_results = pd.DataFrame()
 
-def insert_first():    
-    collection = BasicCollection(dbname, collectionname, host, operation_mode)
-    temp_destination = source_folder + '/temp/'
-    os.makedirs(temp_destination, exist_ok=True)
+class Comparator:
+    def __init__(self, host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions):
+        self.operation_mode = operation_mode
+        self.method = method
+        self.dbname = dbname
+        self.collectionname = collectionname
+        self.source_folder = source_folder
+        self.date_columns = date_columns
+        self.csv_destination = csv_destination
+        self.operations_file = operations_file
+        self.number_of_operations = number_of_operations
+        self.percent_of_heterogeneous_queries = percent_of_heterogeneous_queries
+        self.percent_of_insertions = percent_of_insertions
+        self.host = host
+        self.collection = BasicCollection(self.dbname, self.collectionname, self.host, self.operation_mode)
 
-    start = time.time()
-    for file in os.listdir(source_folder):
-        # Check if the file is a CSV file
-        if file.endswith('.csv'):
-            # Print the full file path
-            file_path = os.path.join(source_folder, file)
-            file_size = os.path.getsize(file_path)
-            max_file_size = 5 * 1024 * 1024  # 5Mb in bytes
+    def insert_first(self):            
+        temp_destination = source_folder + '/temp/'
+        os.makedirs(temp_destination, exist_ok=True)
 
-            if file_size > max_file_size:
-                # Divide the file into smaller files
-                chunk_size = max_file_size
-                with open(file_path, 'rb') as f:
-                    header = f.readline()  # Read the first row of the original file
-                    chunk = f.read(chunk_size)  # Read the rest of the chunk
-                    chunk_number = 1
-                    while chunk:
-                        # Check if the chunk ends in the middle of a row
-                        if chunk[-1] != b'\n':
-                            # Find the last complete row in the chunk
-                            last_row_index = chunk.rfind(b'\n')
-                            # Trim the chunk to the last complete row
-                            resto = chunk[last_row_index+1:]
-                            chunk = chunk[:last_row_index+1]
-                        # Write the chunk to a new file
-                        new_file_path = os.path.join(temp_destination, f"{file}_{chunk_number}")
-                        with open(new_file_path, 'wb') as new_file:
-                            new_file.write(header)
-                            new_file.write(chunk)
-                        chunk_number += 1
-                        # Read the next chunk
-                        chunk = resto + f.read(chunk_size)
-            else:
-                shutil.copy2(file_path, temp_destination)
-
+        start = time.time()
+        for file in os.listdir(self.source_folder):
+            # Check if the file is a CSV file
+            if file.endswith('.csv'):
+                # Print the full file path
+                file_path = os.path.join(source_folder, file)
+                self.collection.insert_many_by_csv(file_path, date_columns)    
         
-    for file in os.listdir(temp_destination):        
-        # Insert the entire file
-        print('Inserting file:', file)
-        file_path = os.path.join(temp_destination, file)
-        collection.insert_many_by_csv(file_path, date_columns)
-        #break
+        self.collection.execute_many_operations_by_csv(operations_file, 'operation_type', 'valid_from')
+        
+        end = time.time()    
 
-    shutil.rmtree(temp_destination)
+        ret = {
+            'execution_time': (end-start)        
+        }
+
+        return ret
     
-    collection.collection.execute_many_operations_by_csv(operations_file, 'operation_type', 'valid_from')
-    
-    end = time.time()    
+    def generate_domain_profile(self):        
+        heterogeneous_domain = {}
+        non_heterogeneous_domain = {}
+        
+        for operation_type in ['translation','grouping','ungrouping']:
+            fields = self.collection.collection.collection_versions.distinct('next_operation.field', {'next_operation.type':operation_type})
 
-    ret = {
-        'execution_time': (end-start)        
-    }
+            for field in fields:
+                values = self.collection.collection.collection_versions.distinct('next_operation.from', {'next_operation.type':operation_type, 'next_operation.field':field})
+                values.extend(self.collection.collection.collection_versions.distinct('next_operation.to', {'next_operation.type':operation_type, 'next_operation.field':field}))
 
-    return ret
+                heterogeneous_domain[field] = set(values)        
 
-insert_first()
+        mr = self.collection.collection.db.command('mapreduce', self.collectionname, map='function() { for (var key in this) { emit(key, null); } }', reduce='function(key, stuff) { return null; }', out=self.collectionname + '_keys')
+        fields = self.collection.collection.db[self.collectionname + '_keys'].distinct('_id')
+        
+        for field in fields:
+            if field.startswith('_'):
+                continue
+            values = self.collection.collection.collection.distinct(field)
+            non_heterogeneous_domain[field] = set(values).difference(heterogeneous_domain.get(field, set()))
+
+        self.collection.collection.db[self.collectionname + '_keys'].drop()
+
+        field_types = {}
+
+        for field in heterogeneous_domain:
+            values = heterogeneous_domain[field]
+            if all(isinstance(value, (int, float)) for value in values):
+                field_types[field] = 'numeric'
+            elif all(isinstance(value, str) for value in values):
+                field_types[field] = 'text'
+            elif all(isinstance(value, datetime) for value in values):
+                field_types[field] = 'date'
+            else:
+                field_types[field] = 'mixed'
+
+        for field in non_heterogeneous_domain:
+            values = non_heterogeneous_domain[field]
+            if all(isinstance(value, (int, float)) for value in values):
+                field_types[field] = 'numeric'
+            elif all(isinstance(value, str) for value in values):
+                field_types[field] = 'text'
+            elif all(isinstance(value, pd.Timestamp) for value in values):
+                field_types[field] = 'date'
+            else:
+                field_types[field] = 'mixed'
+
+        return heterogeneous_domain, non_heterogeneous_domain, field_types
+
+    def generate_queries_list(self):
+        domain_dict_heterogeneous, domain_dict_nonheterogeneous, field_types = self.generate_domain_profile()
+
+        updates = math.floor(self.number_of_operations*self.percent_of_insertions)
+        reads = self.number_of_operations-updates
+
+        sequence = ([True]*updates)
+        sequence.extend([False]*reads)
+        random.shuffle(sequence)    
+
+        heterogeneous_queries = math.floor(self.number_of_operations*self.percent_of_heterogeneous_queries)
+        non_heterogeneous_queries = self.number_of_operations-heterogeneous_queries
+        heterogeneity_sequence = ([True]*heterogeneous_queries)
+        heterogeneity_sequence.extend([False]*non_heterogeneous_queries)
+        random.shuffle(heterogeneity_sequence)
+
+
+        queries = []
+        for s in heterogeneity_sequence:
+            if s:
+                field = random.choice(list(domain_dict_heterogeneous.keys()))
+                value = random.choice(list(domain_dict_nonheterogeneous[field]))
+            else:
+                field = random.choice(list(domain_dict_nonheterogeneous.keys()))
+                value = random.choice(list(domain_dict_nonheterogeneous[field]))
+
+            queries.append({field:value})
+        pass
+
+
+c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions)
+#c.insert_first()
+c.generate_queries_list()
+
+#insert_first()
 
 # def operations_first():    
 #     d = DatabaseGenerator()
@@ -138,6 +204,9 @@ insert_first()
 #         'generator': d
 #     }
 #     return ret
+
+
+
 
 # def update_and_read_test(percent_of_update, insert_first_selected):
 #     ### Generate database just as before    
