@@ -136,7 +136,7 @@ class Comparator:
                 field_types[field] = 'numeric'
             elif all(isinstance(value, str) for value in values):
                 field_types[field] = 'text'
-            elif all(isinstance(value, pd.Timestamp) for value in values):
+            elif all(isinstance(value, datetime) for value in values):
                 field_types[field] = 'date'
             else:
                 field_types[field] = 'mixed'
@@ -162,12 +162,19 @@ class Comparator:
 
         queries = []
         for s in heterogeneity_sequence:
-            if s:
+            if s:                
                 field = random.choice(list(domain_dict_heterogeneous.keys()))
                 value = random.choice(list(domain_dict_nonheterogeneous[field]))
             else:
                 field = random.choice(list(domain_dict_nonheterogeneous.keys()))
                 value = random.choice(list(domain_dict_nonheterogeneous[field]))
+
+            if (field_types[field] == 'numeric' or field_types[field]=='date') and random.random() < 0.5: #50% of the time we will use a range query
+                r = random.random()
+                if r < 0.5:
+                    value = {'$gt':value}
+                else:
+                    value = {'$lt':value}             
 
             queries.append({field:value})
         pass
