@@ -10,6 +10,7 @@ from datetime import datetime
 from pymongo import MongoClient
 from database_generator import DatabaseGenerator
 from semantic_heterogeneous_database import BasicCollection
+import re
 pd.options.mode.chained_assignment = None  # default='warn'
 
 #python simulations_realcases.py --method='insertion_first' --sourcefolder='/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/source/' --datecolumn='ano' --destination='teste.csv' --dbname='experimento_datasus' --collectionname='db_experimento_datasus' --mode='preprocess' --operations='/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
@@ -43,7 +44,7 @@ dbname = 'experimento_datasus'
 collectionname = 'db_experimento_datasus'
 source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/source/'
 date_columns = 'ano'
-csv_destination = 'teste.csv'
+csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/results/'
 operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
 number_of_operations = 100
 percent_of_heterogeneous_queries = 0.3
@@ -71,10 +72,9 @@ class Comparator:
         self.host = host
         self.collection = BasicCollection(self.dbname, self.collectionname, self.host, self.operation_mode)
 
-    def insert_first(self):            
-        temp_destination = source_folder + '/temp/'
-        os.makedirs(temp_destination, exist_ok=True)
+        os.makedirs(csv_destination, exist_ok=True)
 
+    def insert_first(self):            
         start = time.time()
         for file in os.listdir(self.source_folder):
             # Check if the file is a CSV file
@@ -92,6 +92,27 @@ class Comparator:
         }
 
         return ret
+
+    def operations_first(self):
+        start = time.time()
+        self.collection.execute_many_operations_by_csv(operations_file, 'operation_type', 'valid_from')
+
+        for file in os.listdir(self.source_folder):
+            # Check if the file is a CSV file
+            if file.endswith('.csv'):
+                # Print the full file path
+                file_path = os.path.join(source_folder, file)
+                self.collection.insert_many_by_csv(file_path, date_columns)           
+        
+        
+        end = time.time()    
+
+        ret = {
+            'execution_time': (end-start)        
+        }
+
+        return ret
+
     
     def generate_domain_profile(self):        
         heterogeneous_domain = {}
@@ -169,20 +190,50 @@ class Comparator:
                 field = random.choice(list(domain_dict_nonheterogeneous.keys()))
                 value = random.choice(list(domain_dict_nonheterogeneous[field]))
 
+            if(field_types[field]=='date'):
+                value = value.isoformat()
+
             if (field_types[field] == 'numeric' or field_types[field]=='date') and random.random() < 0.5: #50% of the time we will use a range query
-                r = random.random()
+                r = random.random()                
+
                 if r < 0.5:
                     value = {'$gt':value}
                 else:
                     value = {'$lt':value}             
 
             queries.append({field:value})
-        pass
+        
+        self.queries = queries
+        queries_file = csv_destination + 'queries.txt'
+        with open(queries_file, 'w') as file:
+            for query in queries:
+                file.write(str(query) + '\n')
+    
+    def DecodeDateTime(self,empDict):
+        for key, value in empDict.items():
+            if isinstance(value, str) and re.sub(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}', '', value) == '':
+                empDict[key] = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S')
+        return empDict
+
+    def execute_queries(self):
+        results = dict()
+        with open(csv_destination + 'queries.txt', 'r') as file:
+            queries = file.readlines()
+            for query in queries:
+                query = query.replace('\'','\"')                
+                query = json.loads(query.strip(), object_hook=self.DecodeDateTime)
+                result = list(self.collection.find_many(query))
+                results[str(query)] = hash(str(result))
+
+        with open(f'{csv_destination}results_{self.operation_mode}.txt', 'w') as file:
+            file.write(str(results))       
+        
 
 
 c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions)
 #c.insert_first()
-c.generate_queries_list()
+# c.generate_queries_list()
+c.execute_queries()
 
 #insert_first()
 
