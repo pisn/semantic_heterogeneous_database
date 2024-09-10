@@ -225,8 +225,7 @@ class Comparator:
                 query = json.loads(query.strip(), object_hook=self.DecodeDateTime)
                 result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in self.collection.find_many(query)]
                 result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))
-                results[str(query)] = hash(str(result_sorted))                
-                break
+                results[str(query)] = hash(str(result_sorted))                                
 
         with open(f'{csv_destination}results_{self.operation_mode}.txt', 'w') as file:
             file.write(str(results))       
