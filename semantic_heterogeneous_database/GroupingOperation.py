@@ -163,14 +163,18 @@ class GroupingOperation:
 
         i = self.collection.collection_versions.insert_one(new_version)
 
-        if next_version != None:
-            self.collection.collection_processed.update_many({'_evolution_list':previous_version['_id']}, {'$push' : {'_evolution_list':i.inserted_id}})
+        
 
         self.collection.update_versions()
         
+        ##Update value of processed versions
+        
         if self.collection.operation_mode == 'preprocess':
 
-            ##Update value of processed versions
+            if next_version != None:
+                self.collection.collection_processed.update_many({'_evolution_list':previous_version['_id']}, {'$push' : {'_evolution_list':i.inserted_id}})
+
+            
 
             versions = self.collection.collection_versions.find({'$and': [{'next_operation.field' : fieldName},
                                                         {'next_operation.type' : 'grouping'}                                                      

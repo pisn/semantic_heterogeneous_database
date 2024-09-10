@@ -38,9 +38,10 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 #print(f'Test Arguments:{str(args)}')
 
-operation_mode = 'preprocess'
+operation_mode = 'rewrite'
+#operation_mode = 'preprocess'
 method = 'insertion_first'
-dbname = 'experimento_datasus'
+dbname = 'experimento_datasus_1'
 collectionname = 'db_experimento_datasus'
 source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/source/'
 date_columns = 'ano'
@@ -222,12 +223,15 @@ class Comparator:
             for query in queries:
                 query = query.replace('\'','\"')                
                 query = json.loads(query.strip(), object_hook=self.DecodeDateTime)
-                result = list(self.collection.find_many(query))
-                results[str(query)] = hash(str(result))
+                result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in self.collection.find_many(query)]
+                result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))
+                #results[str(query)] = hash(str(result_sorted))
+                results[str(query)] = str(result_sorted)
+                break
 
         with open(f'{csv_destination}results_{self.operation_mode}.txt', 'w') as file:
             file.write(str(results))       
-        
+
 
 
 c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions)

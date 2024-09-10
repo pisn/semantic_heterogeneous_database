@@ -602,8 +602,8 @@ class Collection:
                 affected_records = pd.merge(transformations, records, left_on='from', right_on=field)                                    
                 affected_records = affected_records.loc[(affected_records['valid_from_evoluted']>=affected_records['start'])&(affected_records['valid_from_evoluted']<=affected_records['end'])]            
 
-            records.drop(columns=['valid_from_evoluted'], inplace=True)
-
+            records.drop(columns=['valid_from_evoluted'], inplace=True)        
+        
         return records
 
     def __rewrite_and_query(self, QueryString):
@@ -652,6 +652,10 @@ class Collection:
             records = self.__transform_results(records, transformation_df)      
         else:
             records = pd.DataFrame(records)      
+        
+        # Convert any Timestamp type columns to datetime before converting to dict
+        for col in records.select_dtypes(include=['datetime64[ns]']).columns:
+            records[col] = pd.Series(records[col].dt.to_pydatetime(), dtype = object)
         
         final_result = records.to_dict('records')
             
