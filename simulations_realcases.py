@@ -216,19 +216,21 @@ class Comparator:
                 empDict[key] = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S')
         return empDict
 
-    def execute_queries(self):
-        results = dict()
-        with open(csv_destination + 'queries.txt', 'r') as file:
-            queries = file.readlines()
-            for query in queries:
-                query = query.replace('\'','\"')                
-                query = json.loads(query.strip(), object_hook=self.DecodeDateTime)
-                result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in self.collection.find_many(query)]
-                result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))
-                results[str(query)] = hash(str(result_sorted))                                
+    def execute_queries(self):       
+        
+        with open(f'{csv_destination}results_{self.operation_mode}.txt', 'w') as results_file:
+            results_file.write('operation_mode;query;hashed_result\n')
+            with open(csv_destination + 'queries.txt', 'r') as file:
+                queries = file.readlines()
+                for query in queries:
+                    query_str = query.replace('\'','\"')                
+                    query = json.loads(query_str.strip(), object_hook=self.DecodeDateTime)
+                    result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in self.collection.find_many(query)]
+                    result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))                
 
-        with open(f'{csv_destination}results_{self.operation_mode}.txt', 'w') as file:
-            file.write(str(results))       
+                    results_file.write(f'{self.operation_mode};{query_str.strip()};{str(hash(str(result_sorted)))}\n')
+                    results_file.flush()
+
 
 
 
