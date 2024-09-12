@@ -163,52 +163,74 @@ class Comparator:
             else:
                 field_types[field] = 'mixed'
 
-        return heterogeneous_domain, non_heterogeneous_domain, field_types
+        return heterogeneous_domain, non_heterogeneous_domain, field_types    
 
+    
     def generate_queries_list(self):
         domain_dict_heterogeneous, domain_dict_nonheterogeneous, field_types = self.generate_domain_profile()
 
         updates = math.floor(self.number_of_operations*self.percent_of_insertions)
         reads = self.number_of_operations-updates
 
-        sequence = ([True]*updates)
-        sequence.extend([False]*reads)
-        random.shuffle(sequence)    
+        heterogeneous_queries = math.floor(reads*self.percent_of_heterogeneous_queries)
+        non_heterogeneous_queries = reads-heterogeneous_queries
+        sequence = ([0]*heterogeneous_queries)
+        sequence.extend([1]*non_heterogeneous_queries)
 
-        heterogeneous_queries = math.floor(self.number_of_operations*self.percent_of_heterogeneous_queries)
-        non_heterogeneous_queries = self.number_of_operations-heterogeneous_queries
-        heterogeneity_sequence = ([True]*heterogeneous_queries)
-        heterogeneity_sequence.extend([False]*non_heterogeneous_queries)
-        random.shuffle(heterogeneity_sequence)
+        heterogeneous_inserts = math.floor(updates*self.percent_of_heterogeneous_queries)
+        non_heterogeneous_inserts = updates-heterogeneous_inserts
+        sequence.extend([2]*heterogeneous_inserts)
+        sequence.extend([3]*non_heterogeneous_inserts)
+        
+        
+        random.shuffle(sequence)
 
 
         queries = []
-        for s in heterogeneity_sequence:
-            if s:                
-                field = random.choice(list(domain_dict_heterogeneous.keys()))
-                value = random.choice(list(domain_dict_nonheterogeneous[field]))
+        for s in sequence:            
+            if s<=1:
+                if s==1:             
+                    ## Generate a heterogeneous query   
+                    field = random.choice(list(domain_dict_heterogeneous.keys()))
+                    value = random.choice(list(domain_dict_nonheterogeneous[field]))
+                elif s==0:
+                    ## Generate a non-heterogeneous query
+                    field = random.choice(list(domain_dict_nonheterogeneous.keys()))
+                    value = random.choice(list(domain_dict_nonheterogeneous[field]))
+
+                if(field_types[field]=='date'):
+                    value = value.isoformat()
+
+                if (field_types[field] == 'numeric' or field_types[field]=='date') and random.random() < 0.5: #50% of the time we will use a range query
+                    r = random.random()                
+
+                    if r < 0.5:
+                        value = {'$gt':value}
+                    else:
+                        value = {'$lt':value}     
+
+                obj = {field:value}        
             else:
-                field = random.choice(list(domain_dict_nonheterogeneous.keys()))
-                value = random.choice(list(domain_dict_nonheterogeneous[field]))
+                obj = {}
+                for field in domain_dict_heterogeneous.keys():
+                    value = random.choice(list(domain_dict_heterogeneous[field]))
+                    if(field_types[field]=='date'):
+                        value = value.isoformat()
+                    obj[field] = value
+                for field in domain_dict_nonheterogeneous.keys():
+                    value = random.choice(list(domain_dict_nonheterogeneous[field]))
+                    if(field_types[field]=='date'):
+                        value = value.isoformat()
+                    obj[field] = value                
 
-            if(field_types[field]=='date'):
-                value = value.isoformat()
-
-            if (field_types[field] == 'numeric' or field_types[field]=='date') and random.random() < 0.5: #50% of the time we will use a range query
-                r = random.random()                
-
-                if r < 0.5:
-                    value = {'$gt':value}
-                else:
-                    value = {'$lt':value}             
-
-            queries.append({field:value})
+            queries.append((str(s),obj))
         
         self.queries = queries
         queries_file = csv_destination + 'queries.txt'
         with open(queries_file, 'w') as file:
+            file.write('type' + ';' + 'query' + '\n')
             for query in queries:
-                file.write(str(query) + '\n')
+                file.write(f'{query[0]};{query[1]}\n')
     
     def DecodeDateTime(self,empDict):
         for key, value in empDict.items():
@@ -217,12 +239,14 @@ class Comparator:
         return empDict
 
     def execute_queries(self):       
-        
+        queries = pd.read_csv(csv_destination + 'queries.txt', sep=';')
+
         with open(f'{csv_destination}results_{self.operation_mode}.txt', 'w') as results_file:
-            results_file.write('operation_mode;query;hashed_result\n')
-            with open(csv_destination + 'queries.txt', 'r') as file:
-                queries = file.readlines()
-                for query in queries:
+            results_file.write('operation_mode;query;hashed_result\n')            
+            for idx,row in queries.iterrows():
+                query = row['query']
+                operation_type = row['type']
+                if operation_type <=1:
                     query_str = query.replace('\'','\"')                
                     query = json.loads(query_str.strip(), object_hook=self.DecodeDateTime)
                     result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in self.collection.find_many(query)]
@@ -236,9 +260,9 @@ class Comparator:
 
 c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions)
 #c.insert_first()
-# c.generate_queries_list()
+c.generate_queries_list()
 c.execute_queries()
-
+#
 #insert_first()
 
 # def operations_first():    
