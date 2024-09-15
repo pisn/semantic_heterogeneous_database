@@ -77,13 +77,8 @@ class Comparator:
 
     def insert_first(self):            
         start = time.time()
-        for file in os.listdir(self.source_folder):
-            # Check if the file is a CSV file
-            if file.endswith('.csv'):
-                # Print the full file path
-                file_path = os.path.join(source_folder, file)
-                self.collection.insert_many_by_csv(file_path, date_columns)    
         
+        self.collection.insert_many_by_csv(self.source_folder, self.date_columns)        
         self.collection.execute_many_operations_by_csv(operations_file, 'operation_type', 'valid_from')
         
         end = time.time()    
@@ -189,29 +184,33 @@ class Comparator:
         queries = []
         for s in sequence:            
             if s<=1:
-                if s==1:             
-                    ## Generate a heterogeneous query   
-                    field = random.choice(list(domain_dict_heterogeneous.keys()))
-                    value = random.choice(list(domain_dict_nonheterogeneous[field]))
-                elif s==0:
-                    ## Generate a non-heterogeneous query
-                    field = random.choice(list(domain_dict_nonheterogeneous.keys()))
-                    value = random.choice(list(domain_dict_nonheterogeneous[field]))
+                test_obj = {} ##Will be null, tests are only for insertions
+                obj = {}
+                for i in range(2):                    
+                    if s==0 or i ==1:
+                        ## Generate a non-heterogeneous query                    
+                        field = random.choice(list(domain_dict_nonheterogeneous.keys()))
+                        value = random.choice(list(domain_dict_nonheterogeneous[field]))
+                    elif s==1:             
+                        ## Generate a heterogeneous query                       
+                        field = random.choice(list(domain_dict_heterogeneous.keys()))
+                        value = random.choice(list(domain_dict_heterogeneous[field]))
 
-                if(field_types[field]=='date'):
-                    value = value.isoformat()
+                    if(field_types[field]=='date'):
+                        value = value.isoformat()
 
-                if (field_types[field] == 'numeric' or field_types[field]=='date') and random.random() < 0.5: #50% of the time we will use a range query
-                    r = random.random()                
+                    if (field_types[field] == 'numeric' or field_types[field]=='date') and random.random() < 0.5: #50% of the time we will use a range query
+                        r = random.random()                
 
-                    if r < 0.5:
-                        value = {'$gt':value}
-                    else:
-                        value = {'$lt':value}     
+                        if r < 0.5:
+                            value = {'$gt':value}
+                        else:
+                            value = {'$lt':value}     
 
-                obj = {field:value}        
+                    obj[field]  = value
             else:
                 obj = {}
+                test_obj = {}
                 for field in domain_dict_heterogeneous.keys():
                     value = random.choice(list(domain_dict_heterogeneous[field]))
                     if(field_types[field]=='date'):
@@ -221,16 +220,22 @@ class Comparator:
                     value = random.choice(list(domain_dict_nonheterogeneous[field]))
                     if(field_types[field]=='date'):
                         value = value.isoformat()
-                    obj[field] = value                
+                    obj[field] = value       
 
-            queries.append((str(s),obj))
+                heterogeneous_field = random.choice(list(domain_dict_heterogeneous.keys()))                
+                test_obj[heterogeneous_field] = obj[heterogeneous_field]  ## Let's test in sequence if the queries envolving this heterogeneous fields were successfull
+
+                non_heterogeneous_field = random.choice(list(domain_dict_nonheterogeneous.keys()))
+                test_obj[non_heterogeneous_field] = obj[non_heterogeneous_field]  ## Let's test in sequence if the queries envolving this non-heterogeneous fields were successfull
+
+            queries.append((str(s),obj,test_obj))
         
         self.queries = queries
-        queries_file = csv_destination + 'queries.txt'
+        queries_file = csv_destination + 'queries.csv'
         with open(queries_file, 'w') as file:
-            file.write('type' + ';' + 'query' + '\n')
+            file.write('type;query;test_query\n')
             for query in queries:
-                file.write(f'{query[0]};{query[1]}\n')
+                file.write(f'{query[0]};{query[1]};{query[2]}\n')
     
     def DecodeDateTime(self,empDict):
         for key, value in empDict.items():
@@ -239,7 +244,7 @@ class Comparator:
         return empDict
 
     def execute_queries(self):       
-        queries = pd.read_csv(csv_destination + 'queries.txt', sep=';')
+        queries = pd.read_csv(csv_destination + 'queries.csv', sep=';')
 
         with open(f'{csv_destination}results_{self.operation_mode}.txt', 'w') as results_file:
             results_file.write('operation_mode;query;hashed_result\n')            
@@ -254,113 +259,34 @@ class Comparator:
 
                     results_file.write(f'{self.operation_mode};{query_str.strip()};{str(hash(str(result_sorted)))}\n')
                     results_file.flush()
+                else:
+                    test_query = row['test_query']
+
+                    query_str = query.replace('\'','\"')
+                    query = json.loads(query_str.strip(), object_hook=self.DecodeDateTime)
+
+                    ##Insertion
+                    self.collection.insert_one(json.dumps(query, default=str), query['ano'])
+
+                    ## Test Query
+                    test_query_str = test_query.replace('\'','\"')
+                    test_query = json.loads(test_query_str.strip(), object_hook=self.DecodeDateTime)
+                    result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in self.collection.find_many(test_query)]
+                    result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))
+
+                    results_file.write(f'{self.operation_mode};{test_query_str.strip()};{str(hash(str(result_sorted)))}\n')
+                
 
 
 
 
 c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions)
 #c.insert_first()
-c.generate_queries_list()
+#c.generate_queries_list()
 c.execute_queries()
 #
 #insert_first()
 
-# def operations_first():    
-#     d = DatabaseGenerator()
-#     print('Generating Records')
-#     d.generate(number_of_records=number_of_records, number_of_versions=1, number_of_fields=number_of_fields,number_of_values_in_domain=number_of_values_in_domain,number_of_evolution_fields=2, operation_mode=operation_mode)
-#     records = pd.DataFrame(d.records)
-
-#     start = time.time()    
-#     for i in range(number_of_versions):
-#         print('Generating Version')
-#         d.generate_version()        
-    
-#     for operation in d.operations: 
-#         print('Executing version operations')       
-#         print(f'OperationType:{str(operation[0])} - ValidFrom:{str(operation[1])} - Args:{str(operation[2])}')  
-#         d.collection.execute_operation(operation[0],operation[1],operation[2])   
-    
-#     print('Inserting Records')
-#     d.collection.insert_many_by_dataframe(records, 'valid_from_date')
-#     end = time.time()    
-
-#     ret = {
-#         'execution_time': (end-start),
-#         'generator': d
-#     }
-#     return ret
-
-
-
-
-# def update_and_read_test(percent_of_update, insert_first_selected):
-#     ### Generate database just as before    
-    
-#     print('Generating Database')
-#     if insert_first_selected:
-#         r = insert_first()   
-#     else:
-#         r = operations_first() 
-
-#     print('Database Generated')
-    
-#     original_records = r['generator'].records.copy()
-
-#     updates = math.floor(number_of_operations*percent_of_update)
-#     reads = number_of_operations-updates
-
-#     sequence = ([True]*updates)
-#     sequence.extend([False]*reads)
-#     random.shuffle(sequence)    
-
-#     records = [r['generator'].generate_record() for i in range(updates)]
-#     records_2 = records.copy()
-
-#     queries = []   
-
-#     for i in range(reads):        
-#         field = (random.choice(r['generator'].fields))[0]
-#         value = random.choice(r['generator'].field_domain[field])
-#         queries.append({field:value})   
-
-#     queries_2 = queries.copy()     
-
-#     print('Executing operations')
-#     start = time.time()
-#     for operation in sequence:             
-#         if operation: 
-#             record = records.pop()            
-#             r['generator'].collection.insert_one(json.dumps(record, default=str),record['valid_from_date'])                                    
-#         else:            
-#             r['generator'].collection.find_many(queries.pop())                     
-
-#     end = time.time()      
-        
-#     print('Operations Executed')
-
-#     operations_time = end-start
-#     r['generator'].destroy()
-
-#     client = MongoClient(host)        
-#     db = client[r['generator'].database_name]
-#     base_collection = db[r['generator'].collection_name]
-
-#     base_collection.insert_many(original_records)
-
-#     start = time.time()    
-#     for operation in sequence:             
-#         if operation: 
-#             record = records_2.pop()
-#             base_collection.insert_one(record)                      
-#         else:
-#             base_collection.find(queries_2.pop()) ##Isso nao faz exatamente sentido. Deveria gerar uma nova query 
-#     end = time.time()    
-#     baseline_time = (end-start)
-#     client.drop_database(r['generator'].database_name)
-    
-#     return ({'insertion_phase': r['execution_time'],'operations_phase': operations_time, 'operations_baseline': baseline_time})
-    
 
 # for i in range(number_of_tests):
 #     print('Starting test ' + str(i))

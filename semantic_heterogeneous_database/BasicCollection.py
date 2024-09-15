@@ -71,8 +71,7 @@ class BasicCollection:
             # Insert the entire file
             print('Inserting file:', file)
             file_path = os.path.join(temp_destination, file)
-            self.collection.insert_many_by_csv(file_path, ValidFromField, ValidFromDateFormat, Delimiter)
-            break       
+            self.collection.insert_many_by_csv(file_path, ValidFromField, ValidFromDateFormat, Delimiter)            
 
         shutil.rmtree(temp_destination)
         
