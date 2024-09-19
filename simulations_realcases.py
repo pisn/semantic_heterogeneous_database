@@ -246,27 +246,40 @@ class Comparator:
     def execute_queries(self):       
         queries = pd.read_csv(csv_destination + 'queries.csv', sep=';')
 
+        time_taken = 0.0
+
         with open(f'{csv_destination}results_{self.operation_mode}.txt', 'w') as results_file:
             results_file.write('operation_mode;query;hashed_result\n')            
             for idx,row in queries.iterrows():
+                print('Executing Query')
                 query = row['query']
                 operation_type = row['type']
                 if operation_type <=1:
                     query_str = query.replace('\'','\"')                
                     query = json.loads(query_str.strip(), object_hook=self.DecodeDateTime)
-                    result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in self.collection.find_many(query)]
+
+                    start = time.time()
+                    query_result = self.collection.find_many(query)
+                    end = time.time()
+                    time_taken += (end-start)
+                    result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in query_result]
                     result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))                
 
                     results_file.write(f'{self.operation_mode};{query_str.strip()};{str(hash(str(result_sorted)))}\n')
                     results_file.flush()
                 else:
+                    print('Executing Insertion')
                     test_query = row['test_query']
 
                     query_str = query.replace('\'','\"')
                     query = json.loads(query_str.strip(), object_hook=self.DecodeDateTime)
 
                     ##Insertion
+
+                    start = time.time()
                     self.collection.insert_one(json.dumps(query, default=str), query['ano'])
+                    end = time.time()
+                    time_taken += (end-start)
 
                     ## Test Query
                     test_query_str = test_query.replace('\'','\"')
@@ -275,6 +288,8 @@ class Comparator:
                     result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))
 
                     results_file.write(f'{self.operation_mode};{test_query_str.strip()};{str(hash(str(result_sorted)))}\n')
+
+            results_file.write('Time Taken;' + str(time_taken) + '\n')
                 
 
 
