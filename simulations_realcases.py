@@ -332,7 +332,7 @@ source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasu
 date_columns = 'ano'
 csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/results/'
 operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
-generate_hashes = False
+generate_hashes = True
 
 
 for percent_of_heterogeneous_queries in [0.15,0.3]:
@@ -340,14 +340,21 @@ for percent_of_heterogeneous_queries in [0.15,0.3]:
         for number_of_operations in range(100, 1000, 100):
             for operation_mode in ['preprocess','rewrite']:    
                 for execution_try in range(10):                
-                    c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes)
+                    output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
+
+                    c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file)
+                    print('Inserting Data')
+
                     c.insert_first()   
                     
                     if operation_mode == 'preprocess' and execution_try==0:                        
+                        print('Generating Queries')
                         c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
 
+                    print('Executing Queries')
                     c.execute_queries()
+                    print('Dropping Database')
                     c.drop_database()
-                    print(f'Finished Execution Try {execution_try} with {number_of_operations} operations, {percent_of_insertions} insertions, {percent_of_heterogeneous_queries} heterogeneous queries and generate_hashes {generate_hashes}')
+                    print(f'Finished {output_file}')
                     time.sleep(10)
                             
