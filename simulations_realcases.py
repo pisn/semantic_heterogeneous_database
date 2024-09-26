@@ -40,23 +40,22 @@ pd.options.mode.chained_assignment = None  # default='warn'
 #print(f'Test Arguments:{str(args)}')
 
 #operation_mode = 'rewrite'
-operation_mode = 'preprocess'
-method = 'insertion_first'
-dbname = 'experimento_datasus_2'
-collectionname = 'db_experimento_datasus'
-source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/source/'
-date_columns = 'ano'
-csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/results/'
-operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
-number_of_operations = 100
-percent_of_heterogeneous_queries = 0.3
-percent_of_insertions = 0.3
+# operation_mode = 'preprocess'
+# method = 'insertion_first'
+# dbname = 'experimento_datasus_2'
+# collectionname = 'db_experimento_datasus'
+# source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/source/'
+# date_columns = 'ano'
+# csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/results/'
+# operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
+# number_of_operations = 100
+# percent_of_heterogeneous_queries = 0.3
+# percent_of_insertions = 0.3
 
 # if method != 'insertion_first' and method != 'operations_first':
 #     raise BaseException('Method not implemented')
 
-host = 'localhost'
-performance_results = pd.DataFrame()
+# host = 'localhost'
 
 class Comparator:
     def __init__(self, host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes):
@@ -317,9 +316,9 @@ class Comparator:
 
 
 
-c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions,1, False)
+# c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions,1, False)
 #c.insert_first()
 #c.generate_queries_list()
-c.execute_queries()
+# c.execute_queries()
 #insert_first()
 #c.drop_database()
