@@ -1,6 +1,7 @@
 import argparse
 import os
 import shutil
+import uuid
 import time
 import json
 import random
@@ -38,10 +39,10 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 #print(f'Test Arguments:{str(args)}')
 
-operation_mode = 'rewrite'
-#operation_mode = 'preprocess'
+#operation_mode = 'rewrite'
+operation_mode = 'preprocess'
 method = 'insertion_first'
-dbname = 'experimento_datasus_1'
+dbname = 'experimento_datasus_2'
 collectionname = 'db_experimento_datasus'
 source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/source/'
 date_columns = 'ano'
@@ -51,14 +52,14 @@ number_of_operations = 100
 percent_of_heterogeneous_queries = 0.3
 percent_of_insertions = 0.3
 
-if method != 'insertion_first' and method != 'operations_first':
-    raise BaseException('Method not implemented')
+# if method != 'insertion_first' and method != 'operations_first':
+#     raise BaseException('Method not implemented')
 
 host = 'localhost'
 performance_results = pd.DataFrame()
 
 class Comparator:
-    def __init__(self, host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions):
+    def __init__(self, host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes):
         self.operation_mode = operation_mode
         self.method = method
         self.dbname = dbname
@@ -70,8 +71,11 @@ class Comparator:
         self.number_of_operations = number_of_operations
         self.percent_of_heterogeneous_queries = percent_of_heterogeneous_queries
         self.percent_of_insertions = percent_of_insertions
+        self.execution_try = execution_try
         self.host = host
         self.collection = BasicCollection(self.dbname, self.collectionname, self.host, self.operation_mode)
+        self.output_file = 'result_' + str(uuid.uuid4()) + '.txt'
+        self.generate_hashes = generate_hashes
 
         os.makedirs(csv_destination, exist_ok=True)
 
@@ -79,26 +83,29 @@ class Comparator:
         start = time.time()
         
         self.collection.insert_many_by_csv(self.source_folder, self.date_columns)        
-        self.collection.execute_many_operations_by_csv(operations_file, 'operation_type', 'valid_from')
+        self.collection.execute_many_operations_by_csv(self.operations_file, 'operation_type', 'valid_from')
         
         end = time.time()    
 
         ret = {
             'execution_time': (end-start)        
         }
+
+        with open(f'{self.csv_destination}{self.output_file}', 'a') as results_file:
+            results_file.write('insertion;insertion_first;'+str(ret['execution_time'])+'\n')    
 
         return ret
 
     def operations_first(self):
         start = time.time()
-        self.collection.execute_many_operations_by_csv(operations_file, 'operation_type', 'valid_from')
+        self.collection.execute_many_operations_by_csv(self.operations_file, 'operation_type', 'valid_from')
 
         for file in os.listdir(self.source_folder):
             # Check if the file is a CSV file
             if file.endswith('.csv'):
                 # Print the full file path
-                file_path = os.path.join(source_folder, file)
-                self.collection.insert_many_by_csv(file_path, date_columns)           
+                file_path = os.path.join(self.source_folder, file)
+                self.collection.insert_many_by_csv(file_path, self.date_columns)           
         
         
         end = time.time()    
@@ -106,6 +113,8 @@ class Comparator:
         ret = {
             'execution_time': (end-start)        
         }
+        with open(f'{self.csv_destination}{self.output_file}', 'a') as results_file:
+            results_file.write('insertion;operations_first;'+str(ret['execution_time'])+'\n')    
 
         return ret
 
@@ -231,7 +240,7 @@ class Comparator:
             queries.append((str(s),obj,test_obj))
         
         self.queries = queries
-        queries_file = csv_destination + 'queries.csv'
+        queries_file = self.csv_destination + 'queries.csv'
         with open(queries_file, 'w') as file:
             file.write('type;query;test_query\n')
             for query in queries:
@@ -243,15 +252,21 @@ class Comparator:
                 empDict[key] = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S')
         return empDict
 
+    def drop_database(self):
+        client = MongoClient(self.host)
+        client.drop_database(self.dbname)
+        print('Database Dropped')
+
     def execute_queries(self):       
-        queries = pd.read_csv(csv_destination + 'queries.csv', sep=';')
+        queries = pd.read_csv(self.csv_destination + 'queries.csv', sep=';')
 
         time_taken = 0.0
 
-        with open(f'{csv_destination}results_{self.operation_mode}.txt', 'w') as results_file:
-            results_file.write('operation_mode;query;hashed_result\n')            
+        with open(f'{self.csv_destination}{self.output_file}', 'a') as results_file:
+            results_file.write(f'Test Start;{self.operation_mode};{self.method};{str(self.number_of_operations)};{str(self.percent_of_insertions)};{str(self.percent_of_heterogeneous_queries)};{str(self.execution_try)}\n')
+            results_file.write('operation_mode;type;query;hashed_result\n')            
             for idx,row in queries.iterrows():
-                print('Executing Query')
+                print('Executing Query ' + str(idx))
                 query = row['query']
                 operation_type = row['type']
                 if operation_type <=1:
@@ -262,13 +277,17 @@ class Comparator:
                     query_result = self.collection.find_many(query)
                     end = time.time()
                     time_taken += (end-start)
-                    result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in query_result]
-                    result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))                
 
-                    results_file.write(f'{self.operation_mode};{query_str.strip()};{str(hash(str(result_sorted)))}\n')
-                    results_file.flush()
+                    if self.generate_hashes:
+                        result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in query_result]
+                        result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))                
+                        results_file.write(f'{self.operation_mode};query;{query_str.strip()};{str(hash(str(result_sorted)))}\n')                    
+                    else:
+                        results_file.write(f'{self.operation_mode};query;{query_str.strip()};\n')                    
+
+                    
                 else:
-                    print('Executing Insertion')
+                    print('Executing Insertion ' + str(idx))
                     test_query = row['test_query']
 
                     query_str = query.replace('\'','\"')
@@ -284,10 +303,13 @@ class Comparator:
                     ## Test Query
                     test_query_str = test_query.replace('\'','\"')
                     test_query = json.loads(test_query_str.strip(), object_hook=self.DecodeDateTime)
-                    result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in self.collection.find_many(test_query)]
-                    result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))
 
-                    results_file.write(f'{self.operation_mode};{test_query_str.strip()};{str(hash(str(result_sorted)))}\n')
+                    if self.generate_hashes:
+                        result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in self.collection.find_many(test_query)]
+                        result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))
+                        results_file.write(f'{self.operation_mode};insertion;{test_query_str.strip()};{str(hash(str(result_sorted)))}\n')
+                    else:
+                        results_file.write(f'{self.operation_mode};insertion;{test_query_str.strip()};\n')
 
             results_file.write('Time Taken;' + str(time_taken) + '\n')
                 
@@ -295,33 +317,9 @@ class Comparator:
 
 
 
-c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions)
+c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions,1, False)
 #c.insert_first()
 #c.generate_queries_list()
 c.execute_queries()
-#
 #insert_first()
-
-
-# for i in range(number_of_tests):
-#     print('Starting test ' + str(i))
-#     tests_result = update_and_read_test(update_percent, method == 'insertion_first')    
-#     d = {
-#         'number_of_records':number_of_records,
-#         'number_of_versions':number_of_versions,
-#         'number_of_fields':number_of_fields,
-#         'number_of_values_in_domain':number_of_values_in_domain,
-#         'number_of_tests':number_of_tests,
-#         'number_of_evolution_fields':number_of_evolution_fields,
-#         'number_of_operations':number_of_operations,
-#         'update_percent':update_percent,
-#         'operation_mode':operation_mode,
-#         'method':method,
-#         'insertion_phase': tests_result['insertion_phase'],
-#         'operations_baseline' : tests_result['operations_baseline'],
-#         'operations_phase':tests_result['operations_phase']
-#     }
-#     print(d)
-#     performance_results = performance_results.append(d, ignore_index=True)  
-
-# performance_results.to_csv(csv_destination)
+#c.drop_database()
