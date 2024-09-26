@@ -58,7 +58,7 @@ pd.options.mode.chained_assignment = None  # default='warn'
 # host = 'localhost'
 
 class Comparator:
-    def __init__(self, host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes):
+    def __init__(self, host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file):
         self.operation_mode = operation_mode
         self.method = method
         self.dbname = dbname
@@ -73,7 +73,7 @@ class Comparator:
         self.execution_try = execution_try
         self.host = host
         self.collection = BasicCollection(self.dbname, self.collectionname, self.host, self.operation_mode)
-        self.output_file = 'result_' + str(uuid.uuid4()) + '.txt'
+        self.output_file = output_file
         self.generate_hashes = generate_hashes
 
         os.makedirs(csv_destination, exist_ok=True)
@@ -322,3 +322,32 @@ class Comparator:
 # c.execute_queries()
 #insert_first()
 #c.drop_database()
+
+
+host = 'localhost'
+method = 'insertion_first'
+dbname = 'experimento_datasus'
+collectionname = 'db_experimento_datasus'
+source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/source/'
+date_columns = 'ano'
+csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/results/'
+operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
+generate_hashes = False
+
+
+for percent_of_heterogeneous_queries in [0.15,0.3]:
+    for percent_of_insertions in [0,0.05,0.5,0.95,1]:
+        for number_of_operations in range(100, 1000, 100):
+            for operation_mode in ['preprocess','rewrite']:    
+                for execution_try in range(10):                
+                    c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes)
+                    c.insert_first()   
+                    
+                    if operation_mode == 'preprocess' and execution_try==0:                        
+                        c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
+
+                    c.execute_queries()
+                    c.drop_database()
+                    print(f'Finished Execution Try {execution_try} with {number_of_operations} operations, {percent_of_insertions} insertions, {percent_of_heterogeneous_queries} heterogeneous queries and generate_hashes {generate_hashes}')
+                    time.sleep(10)
+                            
