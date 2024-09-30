@@ -273,7 +273,11 @@ class Comparator:
                     query = json.loads(query_str.strip(), object_hook=self.DecodeDateTime)
 
                     start = time.time()
-                    query_result = self.collection.find_many(query)
+                    try:
+                        query_result = self.collection.find_many(query)
+                    except:
+                        results_file.write('Error;' + query_str.strip() + '\n')
+                        continue
                     end = time.time()
                     time_taken += (end-start)
 
@@ -294,8 +298,12 @@ class Comparator:
 
                     ##Insertion
 
-                    start = time.time()
-                    self.collection.insert_one(json.dumps(query, default=str), query['ano'])
+                    start = time.time()                    
+                    try:
+                        self.collection.insert_one(json.dumps(query, default=str), query['ano'])
+                    except:
+                        results_file.write('Error;' + query_str.strip() + '\n')
+                        continue
                     end = time.time()
                     time_taken += (end-start)
 
@@ -334,27 +342,32 @@ csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_data
 operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
 generate_hashes = True
 
+with open('experiment_log.txt','w') as log_file:
+    for percent_of_heterogeneous_queries in [0.15,0.3]:
+        for percent_of_insertions in [0,0.05,0.5,0.95,1]:
+            for number_of_operations in range(100, 1000, 100):
+                for operation_mode in ['preprocess','rewrite']:    
+                    for execution_try in range(10):                
+                        output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
 
-for percent_of_heterogeneous_queries in [0.15,0.3]:
-    for percent_of_insertions in [0,0.05,0.5,0.95,1]:
-        for number_of_operations in range(100, 1000, 100):
-            for operation_mode in ['preprocess','rewrite']:    
-                for execution_try in range(10):                
-                    output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
+                        c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file)
+                        log_file.write('Inserting Data\n')
+                        log_file.flush()
 
-                    c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file)
-                    print('Inserting Data')
+                        c.insert_first()   
+                        
+                        if operation_mode == 'preprocess' and execution_try==0:                                                    
+                            log_file.write('Generating Queries\n')
+                            log_file.flush()
+                            c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
 
-                    c.insert_first()   
-                    
-                    if operation_mode == 'preprocess' and execution_try==0:                        
-                        print('Generating Queries')
-                        c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
-
-                    print('Executing Queries')
-                    c.execute_queries()
-                    print('Dropping Database')
-                    c.drop_database()
-                    print(f'Finished {output_file}')
-                    time.sleep(10)
-                            
+                        log_file.write('Executing Queries\n')
+                        log_file.flush()
+                        c.execute_queries()
+                        log_file.write('Dropping Database\n')
+                        log_file.flush()
+                        c.drop_database()                        
+                        log_file.write(f'Finished {output_file}\n')
+                        log_file.flush()
+                        time.sleep(10)
+                                
