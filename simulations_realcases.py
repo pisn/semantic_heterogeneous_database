@@ -77,8 +77,9 @@ class Comparator:
         self.generate_hashes = generate_hashes
 
         os.makedirs(csv_destination, exist_ok=True)
+        
 
-    def insert_first(self):            
+    def __insert_first(self):            
         start = time.time()
         
         self.collection.insert_many_by_csv(self.source_folder, self.date_columns)        
@@ -95,17 +96,10 @@ class Comparator:
 
         return ret
 
-    def operations_first(self):
+    def __operations_first(self):
         start = time.time()
         self.collection.execute_many_operations_by_csv(self.operations_file, 'operation_type', 'valid_from')
-
-        for file in os.listdir(self.source_folder):
-            # Check if the file is a CSV file
-            if file.endswith('.csv'):
-                # Print the full file path
-                file_path = os.path.join(self.source_folder, file)
-                self.collection.insert_many_by_csv(file_path, self.date_columns)           
-        
+        self.collection.insert_many_by_csv(self.source_folder, self.date_columns)
         
         end = time.time()    
 
@@ -117,6 +111,13 @@ class Comparator:
 
         return ret
 
+    def insert(self):
+        if self.method == 'insertion_first':
+            return self.__insert_first()
+        elif self.method == 'operations_first':
+            return self.__operations_first()
+        else:
+            raise BaseException('Method not implemented')
     
     def generate_domain_profile(self):        
         heterogeneous_domain = {}
@@ -333,41 +334,44 @@ class Comparator:
 
 
 host = 'localhost'
-method = 'insertion_first'
+method = 'operations_first'
 dbname = 'experimento_datasus'
 collectionname = 'db_experimento_datasus'
-source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/source/'
+source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/experimentos_datasus/source/'
 date_columns = 'ano'
-csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/results/'
-operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
+csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/experimentos_datasus/results/'
+operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/experimentos_datasus/operations_cid9_cid10.csv'
 generate_hashes = True
 
-with open('experiment_log.txt','w') as log_file:
-    for percent_of_heterogeneous_queries in [0.15,0.3]:
-        for percent_of_insertions in [0,0.05,0.5,0.95,1]:
-            for number_of_operations in range(100, 1000, 100):
-                for operation_mode in ['preprocess','rewrite']:    
-                    for execution_try in range(10):                
-                        output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
+c = Comparator(host, 'preprocess', method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, 100, 0.2, 0.05, 1, True, 'bla.txt')
+c.insert()   
 
-                        c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file)
-                        log_file.write('Inserting Data\n')
-                        log_file.flush()
+# with open('experiment_log.txt','w') as log_file:
+#     for percent_of_heterogeneous_queries in [0.15,0.3]:
+#         for percent_of_insertions in [0,0.05,0.5,0.95,1]:
+#             for number_of_operations in range(100, 1000, 100):
+#                 for operation_mode in ['preprocess','rewrite']:    
+#                     for execution_try in range(10):                
+#                         output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
 
-                        c.insert_first()   
-                        
-                        if operation_mode == 'preprocess' and execution_try==0:                                                    
-                            log_file.write('Generating Queries\n')
-                            log_file.flush()
-                            c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
+#                         c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file)
+#                         log_file.write('Inserting Data\n')
+#                         log_file.flush()
 
-                        log_file.write('Executing Queries\n')
-                        log_file.flush()
-                        c.execute_queries()
-                        log_file.write('Dropping Database\n')
-                        log_file.flush()
-                        c.drop_database()                        
-                        log_file.write(f'Finished {output_file}\n')
-                        log_file.flush()
-                        time.sleep(10)
+#                         c.insert()   
+                                                
+#                         if operation_mode == 'preprocess' and execution_try==0:                                                    
+#                             log_file.write('Generating Queries\n')
+#                             log_file.flush()
+#                             c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
+
+#                         log_file.write('Executing Queries\n')
+#                         log_file.flush()
+#                         c.execute_queries()
+#                         log_file.write('Dropping Database\n')
+#                         log_file.flush()
+#                         c.drop_database()                        
+#                         log_file.write(f'Finished {output_file}\n')
+#                         log_file.flush()
+#                         time.sleep(10)
                                 

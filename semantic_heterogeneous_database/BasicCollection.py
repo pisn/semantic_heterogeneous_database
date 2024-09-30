@@ -38,7 +38,7 @@ class BasicCollection:
                 # Print the full file path
                 file_path = os.path.join(source_folder, file)
                 file_size = os.path.getsize(file_path)
-                max_file_size = 5 * 1024 * 1024  # 5Mb in bytes
+                max_file_size = 15 * 1024 * 1024  # 15Mb in bytes
 
                 if file_size > max_file_size:
                     # Divide the file into smaller files
@@ -67,7 +67,7 @@ class BasicCollection:
                     shutil.copy2(file_path, temp_destination)
 
             
-        for file in os.listdir(temp_destination):        
+        for file in sorted(os.listdir(temp_destination)):
             # Insert the entire file
             print('Inserting file:', file)
             file_path = os.path.join(temp_destination, file)
