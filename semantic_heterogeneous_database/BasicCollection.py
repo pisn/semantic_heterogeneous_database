@@ -1,3 +1,4 @@
+import multiprocessing
 import shutil
 from .Collection import Collection
 from .GroupingOperation import GroupingOperation
@@ -30,6 +31,7 @@ class BasicCollection:
         source_folder = os.path.dirname(FilePath)
 
         temp_destination = source_folder + '/temp/'
+        shutil.rmtree(temp_destination, ignore_errors=True)
         os.makedirs(temp_destination, exist_ok=True)
         
         for file in os.listdir(source_folder):
@@ -38,7 +40,7 @@ class BasicCollection:
                 # Print the full file path
                 file_path = os.path.join(source_folder, file)
                 file_size = os.path.getsize(file_path)
-                max_file_size = 15 * 1024 * 1024  # 15Mb in bytes
+                max_file_size = 10 * 1024 * 1024  # 15Mb in bytes
 
                 if file_size > max_file_size:
                     # Divide the file into smaller files
@@ -67,11 +69,19 @@ class BasicCollection:
                     shutil.copy2(file_path, temp_destination)
 
             
+        
+        # Insert the entire file
+        def insert_file(file_path, ValidFromField, ValidFromDateFormat, Delimiter):
+            self.collection.insert_many_by_csv(file_path, ValidFromField, ValidFromDateFormat, Delimiter)
+
         for file in sorted(os.listdir(temp_destination)):
             # Insert the entire file
             print('Inserting file:', file)
             file_path = os.path.join(temp_destination, file)
-            self.collection.insert_many_by_csv(file_path, ValidFromField, ValidFromDateFormat, Delimiter)            
+            p = multiprocessing.Process(target=insert_file, args=(file_path, ValidFromField, ValidFromDateFormat, Delimiter))
+            p.start()
+            p.join()  # Wait for the process to complete
+            p.terminate()  # Ensure the process is terminated
 
         shutil.rmtree(temp_destination)
         

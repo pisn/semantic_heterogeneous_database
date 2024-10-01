@@ -269,55 +269,58 @@ class Comparator:
                 print('Executing Query ' + str(idx))
                 query = row['query']
                 operation_type = row['type']
-                if operation_type <=1:
-                    query_str = query.replace('\'','\"')                
-                    query = json.loads(query_str.strip(), object_hook=self.DecodeDateTime)
+                if operation_type <=1:                    
 
-                    start = time.time()
                     try:
+                        query_str = query.replace('\'','\"')                
+                        query = json.loads(query_str.strip(), object_hook=self.DecodeDateTime)
+                        start = time.time()
                         query_result = self.collection.find_many(query)
+                        end = time.time()                        
                     except:
                         results_file.write('Error;' + query_str.strip() + '\n')
                         continue
-                    end = time.time()
+                    
                     time_taken += (end-start)
 
                     if self.generate_hashes:
                         result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in query_result]
                         result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))                
-                        results_file.write(f'{self.operation_mode};query;{query_str.strip()};{str(hash(str(result_sorted)))}\n')                    
+                        results_file.write(f'{self.operation_mode};query;{query_str.strip()};{str(hash(str(result_sorted)))};{str(end-start)}\n')                    
                     else:
-                        results_file.write(f'{self.operation_mode};query;{query_str.strip()};\n')                    
+                        results_file.write(f'{self.operation_mode};query;{query_str.strip()};;{str(end-start)}\n')                    
 
                     
                 else:
                     print('Executing Insertion ' + str(idx))
                     test_query = row['test_query']
 
-                    query_str = query.replace('\'','\"')
-                    query = json.loads(query_str.strip(), object_hook=self.DecodeDateTime)
-
-                    ##Insertion
-
-                    start = time.time()                    
+                    ##Insertion                    
                     try:
-                        self.collection.insert_one(json.dumps(query, default=str), query['ano'])
+                        start = time.time()                    
+                        query_str = query.replace('\'','\"')
+                        query = json.loads(query_str.strip(), object_hook=self.DecodeDateTime)
+                        self.collection.insert_one(json.dumps(query, default=str), query['ano'])                        
+                        end = time.time()
+                        results_file.write(f'{self.operation_mode};insertion;{query_str.strip()};;{str(end-start)}\n')
                     except:
                         results_file.write('Error;' + query_str.strip() + '\n')
                         continue
-                    end = time.time()
+                    
                     time_taken += (end-start)
 
                     ## Test Query
-                    test_query_str = test_query.replace('\'','\"')
-                    test_query = json.loads(test_query_str.strip(), object_hook=self.DecodeDateTime)
-
-                    if self.generate_hashes:
-                        result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in self.collection.find_many(test_query)]
-                        result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))
-                        results_file.write(f'{self.operation_mode};insertion;{test_query_str.strip()};{str(hash(str(result_sorted)))}\n')
-                    else:
-                        results_file.write(f'{self.operation_mode};insertion;{test_query_str.strip()};\n')
+                    try:
+                        if self.generate_hashes:                    
+                            test_query_str = test_query.replace('\'','\"')
+                            test_query = json.loads(test_query_str.strip(), object_hook=self.DecodeDateTime)
+                            result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in self.collection.find_many(test_query)]
+                            result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))
+                            results_file.write(f'{self.operation_mode};insertion;{test_query_str.strip()};{str(hash(str(result_sorted)))};{str(end-start)}\n')
+                        else:
+                            results_file.write(f'{self.operation_mode};insertion;{test_query_str.strip()};;{str(end-start)}\n')
+                    except BaseException:
+                        results_file.write('Error;' + query_str.strip() + '\n')
 
             results_file.write('Time Taken;' + str(time_taken) + '\n')
                 
@@ -337,41 +340,49 @@ host = 'localhost'
 method = 'operations_first'
 dbname = 'experimento_datasus'
 collectionname = 'db_experimento_datasus'
-source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/experimentos_datasus/source/'
+source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/source/'
 date_columns = 'ano'
-csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/experimentos_datasus/results/'
-operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/experimentos_datasus/operations_cid9_cid10.csv'
-generate_hashes = True
+csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/results/'
+operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
+generate_hashes = False
 
-c = Comparator(host, 'preprocess', method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, 100, 0.2, 0.05, 1, True, 'bla.txt')
-c.insert()   
+# c = Comparator(host, 'preprocess', method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, 100, 0.2, 0.05, 1, True, 'bla.txt')
+# c.insert()   
 
-# with open('experiment_log.txt','w') as log_file:
-#     for percent_of_heterogeneous_queries in [0.15,0.3]:
-#         for percent_of_insertions in [0,0.05,0.5,0.95,1]:
-#             for number_of_operations in range(100, 1000, 100):
-#                 for operation_mode in ['preprocess','rewrite']:    
-#                     for execution_try in range(10):                
-#                         output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
+with open('experiment_log.txt','w') as log_file:
+    for percent_of_heterogeneous_queries in [0.15,0.3]:
+        for percent_of_insertions in [0,0.05,0.5,0.95,1]:
+            for number_of_operations in range(100, 1000, 100):
+                for operation_mode in ['preprocess','rewrite']:    
+                    for execution_try in range(3):                
+                        output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
 
-#                         c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file)
-#                         log_file.write('Inserting Data\n')
-#                         log_file.flush()
+                        try:
+                            log_file.write('Executing ' + output_file)
+                            c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file)
+                            log_file.write('Inserting Data\n')
+                            log_file.flush()
 
-#                         c.insert()   
-                                                
-#                         if operation_mode == 'preprocess' and execution_try==0:                                                    
-#                             log_file.write('Generating Queries\n')
-#                             log_file.flush()
-#                             c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
+                            c.insert()   
+                                                    
+                            if operation_mode == 'preprocess' and execution_try==0:                                                    
+                                log_file.write('Generating Queries\n')
+                                log_file.flush()
+                                c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
 
-#                         log_file.write('Executing Queries\n')
-#                         log_file.flush()
-#                         c.execute_queries()
-#                         log_file.write('Dropping Database\n')
-#                         log_file.flush()
-#                         c.drop_database()                        
-#                         log_file.write(f'Finished {output_file}\n')
-#                         log_file.flush()
-#                         time.sleep(10)
+                            log_file.write('Executing Queries\n')
+                            log_file.flush()
+                            c.execute_queries()                            
+                            log_file.write(f'Finished {output_file}\n')
+                            log_file.flush()
+                            time.sleep(10)
+                        except BaseException:
+                            log_file.write('Error executing')
+                            log_file.flush()
+                        finally:
+                            c.drop_database()
+                            time.sleep(10)
+                            log_file.write('Database Dropped\n')
+                            log_file.flush()
+                            time.sleep(10)
                                 
