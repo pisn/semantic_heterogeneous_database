@@ -58,7 +58,7 @@ pd.options.mode.chained_assignment = None  # default='warn'
 # host = 'localhost'
 
 class Comparator:
-    def __init__(self, host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file):
+    def __init__(self, host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file, core_index):
         self.operation_mode = operation_mode
         self.method = method
         self.dbname = dbname
@@ -75,6 +75,11 @@ class Comparator:
         self.collection = BasicCollection(self.dbname, self.collectionname, self.host, self.operation_mode)
         self.output_file = output_file
         self.generate_hashes = generate_hashes
+        self.core_index = core_index
+
+        if self.core_index and self.operation_mode=='preprocess':
+            self.collection.create_index('_min_version_number',1)
+            self.collection.create_index('_max_version_number',1)
 
         os.makedirs(csv_destination, exist_ok=True)
         
@@ -340,11 +345,12 @@ host = 'localhost'
 method = 'operations_first'
 dbname = 'experimento_datasus'
 collectionname = 'db_experimento_datasus'
-source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/source/'
+source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/experimentos_datasus/source/'
 date_columns = 'ano'
-csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/results/'
-operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
+csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/experimentos_datasus/results/'
+operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/experimentos_datasus/operations_cid9_cid10.csv'
 generate_hashes = False
+core_index = True
 
 # c = Comparator(host, 'preprocess', method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, 100, 0.2, 0.05, 1, True, 'bla.txt')
 # c.insert()   
@@ -359,7 +365,7 @@ with open('experiment_log.txt','w') as log_file:
 
                         try:
                             log_file.write('Executing ' + output_file)
-                            c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file)
+                            c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file, core_index)
                             log_file.write('Inserting Data\n')
                             log_file.flush()
 

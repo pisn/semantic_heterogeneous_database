@@ -14,13 +14,20 @@ class BasicCollection:
             raise BaseException('Operation Mode not recognized')
 
         self.operation_mode = operation_mode
-        self.collection = Collection(DatabaseName,CollectionName, Host, operation_mode)
+        self.database_name = DatabaseName
+        self.collection_name = CollectionName
+        self.host = Host
+
+        self.initialize_collection()
+        
+
+    def initialize_collection(self):
+        self.collection = Collection(self.database_name,self.collection_name, self.host, self.operation_mode)
 
         self.collection.register_operation('translation', TranslationOperation(self))
         self.collection.register_operation('grouping', GroupingOperation(self))
         self.collection.register_operation('ungrouping', UngroupingOperation(self))
 
-   
     def insert_one(self, JsonString, ValidFromDate:datetime):
         self.collection.insert_one(JsonString, ValidFromDate)
 
@@ -72,6 +79,7 @@ class BasicCollection:
         
         # Insert the entire file
         def insert_file(file_path, ValidFromField, ValidFromDateFormat, Delimiter):
+            self.initialize_collection() ##best to initialize collection after forking
             self.collection.insert_many_by_csv(file_path, ValidFromField, ValidFromDateFormat, Delimiter)
 
         for file in sorted(os.listdir(temp_destination)):
@@ -102,3 +110,6 @@ class BasicCollection:
 
     def execute_many_operations_by_csv(self, filePath, operationTypeColumn, validFromField):
         self.collection.execute_many_operations_by_csv(filePath, operationTypeColumn, validFromField)    
+
+    def create_index(self, field, direction):
+        self.collection.create_index(field, direction)

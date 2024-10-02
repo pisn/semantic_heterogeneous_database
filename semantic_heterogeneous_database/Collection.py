@@ -70,7 +70,13 @@ class Collection:
 
         self.collection.create_index([('_first_processed_version',ASCENDING)])
         self.collection.create_index([('_last_processed_version',ASCENDING)])                
-        
+    
+    def create_index(self, field, direction):
+        if self.operation_mode == 'preprocess':
+            self.collection_processed.create_index([(field,direction)]) ## in preprocess operation mode, queries are really executed over the processed collection
+        elif self.operation_mode == 'rewrite':
+            self.collection.create_index([(field,direction)])
+
     def update_versions(self):
         normalized = pd.json_normalize(self.collection_versions.find())
         self.versions_df = pd.DataFrame(normalized)
