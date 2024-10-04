@@ -171,7 +171,7 @@ class Comparator:
 
     
     def generate_queries_list(self):
-        output_file = f'queries_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}.txt'
+        output_file = f'queries_{str(self.percent_of_heterogeneous_queries)}_{str(self.percent_of_insertions)}_{str(self.number_of_operations)}.txt'
         queries_file = self.csv_destination + output_file
 
         if os.path.exists(queries_file):            
@@ -268,7 +268,7 @@ class Comparator:
         print('Database Dropped')
 
     def execute_queries(self):       
-        queries_file = f'queries_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}.txt'
+        queries_file = f'queries_{str(self.percent_of_heterogeneous_queries)}_{str(self.percent_of_insertions)}_{str(self.number_of_operations)}.txt'
 
         queries = pd.read_csv(self.csv_destination + queries_file, sep=';')
 
@@ -319,12 +319,12 @@ class Comparator:
                         start = time.time()                    
                         self.collection.insert_one(json.dumps(query, default=self.EncodeDateTime), query['RefDate'])                        
                         end = time.time()
+                        time_taken += (end-start)
                         results_file.write(f'{self.operation_mode};insertion;{query_str.strip()};;{str(end-start)}\n')
                     except BaseException as e:
                         results_file.write('Error;' + query_str.strip() + '\n')
-                        continue
-                    
-                    time_taken += (end-start)
+                        continue                    
+
 
                     # ## Test Query
                     # try:
@@ -353,6 +353,38 @@ class Comparator:
 #insert_first()
 #c.drop_database()
 
+# from memory_profiler import profile
+
+# @profile
+# def run_experiment():
+
+#     host = 'localhost'
+#     method = 'operations_first'
+#     dbname = 'experimento_datasus'
+#     collectionname = 'db_experimento_datasus'
+#     source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/source/'
+#     date_columns = 'RefDate'
+#     csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/results/'
+#     operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
+#     generate_hashes = False
+
+#     # c = Comparator(host, 'preprocess', method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, 100, 0.2, 0.05, 1, True, 'bla.txt')
+#     # c.insert()   
+
+#     rebuild = False
+
+#     operation_mode = 'rewrite'
+#     number_of_operations = 100
+#     percent_of_heterogeneous_queries = 0.15
+#     percent_of_insertions = 0
+#     execution_try = 0
+#     output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
+    
+#     c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file)                                
+
+#     c.execute_queries()        
+# 
+#
 
 host = 'localhost'
 method = 'operations_first'
@@ -362,15 +394,12 @@ source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasu
 date_columns = 'RefDate'
 csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/results/'
 operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
-generate_hashes = False
+generate_hashes = False   
 
-# c = Comparator(host, 'preprocess', method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, 100, 0.2, 0.05, 1, True, 'bla.txt')
-# c.insert()   
-
-rebuild = False
+rebuild = True
 
 with open('experiment_log.txt','w') as log_file:
-    for operation_mode in ['preprocess','rewrite']:                   
+    for operation_mode in ['preprocess']:                   
         for execution_try in range(10):                          
             for number_of_operations in range(100, 1000, 100):     
                 for percent_of_heterogeneous_queries in [0.15,0.3]:
@@ -404,3 +433,5 @@ with open('experiment_log.txt','w') as log_file:
         rebuild = True
         c.drop_database()         
                                     
+# if __name__ == "__main__":
+#     run_experiment()
