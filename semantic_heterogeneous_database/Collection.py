@@ -104,7 +104,11 @@ class Collection:
     def __insert_one_by_version(self, JsonString, VersionNumber, ValidFromDate:datetime):        
         o = json.loads(JsonString)                
         o['_original_version']=VersionNumber                   
-        o['_valid_from'] = ValidFromDate        
+        o['_valid_from'] = ValidFromDate    
+
+        for key, value in o.items():
+            if isinstance(value, str) and re.match(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}', value):
+                o[key] = datetime.fromisoformat(value)                                    
 
         insertedDocument = self.collection.insert_one(o)        
 
@@ -190,14 +194,14 @@ class Collection:
         self.insert_many_by_dataframe(df, ValidFromField)
     
     def insert_many_by_dataframe(self, dataframe, ValidFromField):        
-        all_versions = self.collection_versions.find(projection=['version_valid_from'])
+        all_versions = self.collection_versions.find(projection=['version_valid_from','version_number'])
         dates = pd.DataFrame(all_versions).sort_values(by='version_valid_from')
-        dates = dates.append([{'version_valid_from':datetime(2200,12,31)}])
+        dates = dates.append([{'version_valid_from':datetime(2200,12,31), 'version_number':float('inf')}], ignore_index=True)
         dates= dates.reset_index(drop=True)
 
         dates_1= dates.copy().reindex(index=np.roll(dates.index,-1))
         dates_1= dates_1.reset_index(drop=True)
-        dates_guide = pd.concat([dates['version_valid_from'],dates_1['version_valid_from']], axis=1).set_axis(['start','end'], axis=1)
+        dates_guide = pd.concat([dates[['version_valid_from','version_number']],dates_1[['version_valid_from']]], axis=1).set_axis(['start','_original_version','end'], axis=1)
 
         r = dataframe.merge(dates_guide, how='cross')
         r[ValidFromField] = pd.to_datetime(r[ValidFromField])
@@ -208,15 +212,15 @@ class Collection:
         r.rename(columns={'start':'version_valid_from'}, inplace=True)
 
         ##Preciso dar um jeito de passar o version number ja. Ja estou passando o valid from também. Para tentar processar tudo de uma vez só
-        r_2 = pd.merge(r, self.versions_df, on='version_valid_from')
-        r_2.rename(columns={'version_number':'_original_version'}, inplace=True)
+        # r_2 = pd.merge(r, self.versions_df, on='version_valid_from')
+        # r_2.rename(columns={'version_number':'_original_version'}, inplace=True)
 
         cols = list(dataframe.columns)
         cols.append('_valid_from')
         cols.append('_original_version')
 
 
-        self.__insert_many_by_version(r_2[cols])
+        self.__insert_many_by_version(r[cols])
 
 
     def __insert_many_by_version(self, Group: pd.DataFrame):
