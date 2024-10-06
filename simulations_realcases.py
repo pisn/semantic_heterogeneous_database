@@ -75,11 +75,7 @@ class Comparator:
         self.collection = BasicCollection(self.dbname, self.collectionname, self.host, self.operation_mode)
         self.output_file = output_file
         self.generate_hashes = generate_hashes
-        self.core_index = core_index
-
-        if self.core_index and self.operation_mode=='preprocess':
-            self.collection.create_index('_min_version_number',1)
-            self.collection.create_index('_max_version_number',1)
+        self.core_index = core_index        
 
         os.makedirs(csv_destination, exist_ok=True)
         
@@ -89,6 +85,10 @@ class Comparator:
         
         self.collection.insert_many_by_csv(self.source_folder, self.date_columns)        
         self.collection.execute_many_operations_by_csv(self.operations_file, 'operation_type', 'valid_from')
+
+        if self.core_index and self.operation_mode=='preprocess':
+            self.collection.create_index('_min_version_number',1)
+            self.collection.create_index('_max_version_number',1)
         
         end = time.time()    
 
@@ -104,7 +104,16 @@ class Comparator:
     def __operations_first(self):
         start = time.time()
         self.collection.execute_many_operations_by_csv(self.operations_file, 'operation_type', 'valid_from')
+        
+        # if self.core_index and self.operation_mode=='preprocess':
+        #     self.collection.create_index([('_min_version_number',1),('cid',1),('RefDate',1)])
+        #     self.collection.create_index([('_max_version_number',1),('cid',1),('RefDate',1)])
+            # self.collection.create_index([('_min_version_number',1)])
+            # self.collection.create_index([('_max_version_number',1)])
+
         self.collection.insert_many_by_csv(self.source_folder, self.date_columns)
+
+        
         
         end = time.time()    
 
@@ -350,94 +359,66 @@ class Comparator:
 
 
 
-
-# c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions,1, False)
-#c.insert_first()
-#c.generate_queries_list()
-# c.execute_queries()
-#insert_first()
-#c.drop_database()
-
-# from memory_profiler import profile
-
-# @profile
-# def run_experiment():
-
-#     host = 'localhost'
-#     method = 'operations_first'
-#     dbname = 'experimento_datasus'
-#     collectionname = 'db_experimento_datasus'
-#     source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/source/'
-#     date_columns = 'RefDate'
-#     csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/results/'
-#     operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
-#     generate_hashes = False
-
-#     # c = Comparator(host, 'preprocess', method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, 100, 0.2, 0.05, 1, True, 'bla.txt')
-#     # c.insert()   
-
-#     rebuild = False
-
-#     operation_mode = 'rewrite'
-#     number_of_operations = 100
-#     percent_of_heterogeneous_queries = 0.15
-#     percent_of_insertions = 0
-#     execution_try = 0
-#     output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
-    
-#     c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file)                                
-
-#     c.execute_queries()        
-# 
-#
-
 host = 'localhost'
 method = 'operations_first'
 dbname = 'experimento_datasus'
 collectionname = 'db_experimento_datasus'
-source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/experimentos_datasus/source/'
-date_columns = 'ano'
-csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/experimentos_datasus/results/'
-operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/experimentos_datasus/operations_cid9_cid10.csv'
+source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/source/'
+date_columns = 'RefDate'
+csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/results/'
+operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/operations_cid9_cid10.csv'
 generate_hashes = False
-core_index = True
 
-rebuild = True
+c = Comparator(host, 'preprocess', method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, 100, 0.2, 0.05, 1, True, 'bla.txt', False)
+c.insert()   
 
-with open('experiment_log.txt','w') as log_file:
-    for operation_mode in ['preprocess']:                   
-        for execution_try in range(10):                          
-            for number_of_operations in range(100, 1000, 100):     
-                for percent_of_heterogeneous_queries in [0.15,0.3]:
-                    for percent_of_insertions in [0,0.05,0.5,0.95,1]:                                   
-                        output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
+# host = 'localhost'
+# method = 'operations_first'
+# dbname = 'experimento_datasus'
+# collectionname = 'db_experimento_datasus'
+# source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/source/'
+# date_columns = 'ano'
+# csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/results/'
+# operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/operations_cid9_cid10.csv'
+# generate_hashes = False
+# core_index = True
 
-                        try:
-                            log_file.write('Executing ' + output_file)
-                            c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file)                            
+# rebuild = True
 
-                            if rebuild:                                
-                                log_file.write('Inserting Data\n')
-                                log_file.flush()
-                                c.insert()
-                                rebuild = False                                                                                                   
+# with open('experiment_log.txt','w') as log_file:
+#     for operation_mode in ['preprocess']:                   
+#         for execution_try in range(10):                          
+#             for number_of_operations in range(100, 1000, 100):     
+#                 for percent_of_heterogeneous_queries in [0.15,0.3]:
+#                     for percent_of_insertions in [0,0.05,0.5,0.95,1]:                                   
+#                         output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
+
+#                         try:
+#                             log_file.write('Executing ' + output_file)
+#                             c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file, core_index)
+
+#                             if rebuild:                                
+#                                 log_file.write('Inserting Data\n')
+#                                 log_file.flush()
+#                                 c.insert()
+#                                 rebuild = False                                                                                                   
                         
-                            log_file.write('Generating Queries\n')
-                            log_file.flush()
-                            c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
+#                             log_file.write('Generating Queries\n')
+#                             log_file.flush()
+#                             c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
 
-                            log_file.write('Executing Queries\n')
-                            log_file.flush()
-                            c.execute_queries()                            
-                            log_file.write(f'Finished {output_file}\n')
-                            log_file.flush()
-                            time.sleep(10)
-                        except BaseException:
-                            log_file.write('Error executing')
-                            log_file.flush()                     
+#                             log_file.write('Executing Queries\n')
+#                             log_file.flush()
+#                             c.execute_queries()                            
+#                             log_file.write(f'Finished {output_file}\n')
+#                             log_file.flush()
+#                             time.sleep(10)
+#                         except BaseException:
+#                             log_file.write('Error executing')
+#                             log_file.flush()                     
 
-        rebuild = True
-        c.drop_database()         
+#         rebuild = True
+#         c.drop_database()         
                                     
-# if __name__ == "__main__":
-#     run_experiment()
+# # if __name__ == "__main__":
+# #     run_experiment()

@@ -36,6 +36,9 @@ class Collection:
 
         if operation_mode == 'preprocess':
             self.collection_processed = self.db[CollectionName+'_processed']
+            if CollectionName+'_processed' not in existing_collections:
+                self.db.create_collection(CollectionName+'_processed')
+                
             self.collection_columns = self.db[CollectionName+'_columns']
 
             ## Loading columns collection in memory        
@@ -71,11 +74,11 @@ class Collection:
         self.collection.create_index([('_first_processed_version',ASCENDING)])
         self.collection.create_index([('_last_processed_version',ASCENDING)])                
     
-    def create_index(self, field, direction):
+    def create_index(self, fields):
         if self.operation_mode == 'preprocess':
-            self.collection_processed.create_index([(field,direction)]) ## in preprocess operation mode, queries are really executed over the processed collection
+            self.collection_processed.create_index([(field[0],field[1]) for field in fields]) ## in preprocess operation mode, queries are really executed over the processed collection
         elif self.operation_mode == 'rewrite':
-            self.collection.create_index([(field,direction)])
+            self.collection.create_index([(field[0],field[1]) for field in fields])
 
     def update_versions(self):
         normalized = pd.json_normalize(self.collection_versions.find())
@@ -247,14 +250,25 @@ class Collection:
         cols = list(processed_group.columns)
         recheck_group = processed_group.copy()
 
+        i = 0
+
         while len(recheck_group) > 0:
+            print('Exec ' + str(i))
+            i+=1
+
+            print('Recheck:' + str(len(recheck_group)))
             g = recheck_group[cols]
             recheck_group = pd.DataFrame()
 
             for operationType in self.semantic_operations:                
                 affected_versions = self.semantic_operations[operationType].check_if_many_affected(g)
 
+                j = 0
                 if affected_versions != None:                                           
+                    print('Internal exec '+ str(j))
+                    j+=1
+
+                    print('Affected versions: ' + str(len(affected_versions)))
                     for v in affected_versions:
                         if v[2] == 'backward':
                             altered = self.semantic_operations[operationType].evolute_many_backward(v[0], v[1])

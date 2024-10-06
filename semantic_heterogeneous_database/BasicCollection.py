@@ -47,7 +47,7 @@ class BasicCollection:
                 # Print the full file path
                 file_path = os.path.join(source_folder, file)
                 file_size = os.path.getsize(file_path)
-                max_file_size = 10 * 1024 * 1024  # 15Mb in bytes
+                max_file_size = 1 * 1024 * 1024  # 15Mb in bytes
 
                 if file_size > max_file_size:
                     # Divide the file into smaller files
@@ -111,5 +111,5 @@ class BasicCollection:
     def execute_many_operations_by_csv(self, filePath, operationTypeColumn, validFromField):
         self.collection.execute_many_operations_by_csv(filePath, operationTypeColumn, validFromField)    
 
-    def create_index(self, field, direction):
-        self.collection.create_index(field, direction)
+    def create_index(self, fields):
+        self.collection.create_index(fields)
