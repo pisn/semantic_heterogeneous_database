@@ -18,12 +18,9 @@ class TestBase(unittest.TestCase):
 
 
         sus_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/mortalidade_ano/'
-        self.SusCollection.insert_many_by_csv(sus_folder + '/' + 'mortalidade_9_processed_1995.csv', 'RefDate')
-        self.SusCollection.insert_many_by_csv(sus_folder + '/' + 'mortalidade_10_processed_1996.csv', 'RefDate')
-
-        self.SusCollection_rewrite.insert_many_by_csv(sus_folder + '/' + 'mortalidade_9_processed_1995.csv', 'RefDate')
-        self.SusCollection_rewrite.insert_many_by_csv(sus_folder + '/' + 'mortalidade_10_processed_1996.csv', 'RefDate')
-
+        self.SusCollection.insert_many_by_csv(sus_folder, 'RefDate')
+        self.SusCollection_rewrite.insert_many_by_csv(sus_folder, 'RefDate')
+      
     def tearDown(self):
         self.BasicCollection.collection.client.drop_database('test_database')
         self.SusCollection.collection.client.drop_database('sus_test')
