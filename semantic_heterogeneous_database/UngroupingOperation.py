@@ -41,7 +41,7 @@ class UngroupingOperation:
             new_version_number = previous_version['version_number'] + (next_version['version_number'] - previous_version['version_number'])/2
         else:
             next_version = None
-            self.collection.current_version = self.collection.current_version + 1 #this is the newest version now
+            self.collection.current_version = self.collection.current_version + 100 #this is the newest version now
             new_version_number = self.collection.current_version
             
 

@@ -359,6 +359,19 @@ class Comparator:
 
 
 
+# host = 'localhost'
+# method = 'operations_first'
+# dbname = 'experimento_datasus'
+# collectionname = 'db_experimento_datasus'
+# source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/source/'
+# date_columns = 'RefDate'
+# csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/results/'
+# operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/operations_cid9_cid10.csv'
+# generate_hashes = False
+
+# c = Comparator(host, 'preprocess', method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, 100, 0.2, 0.05, 1, True, 'bla.txt', False)
+# c.insert()   
+
 host = 'localhost'
 method = 'operations_first'
 dbname = 'experimento_datasus'
@@ -368,57 +381,44 @@ date_columns = 'RefDate'
 csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/results/'
 operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/operations_cid9_cid10.csv'
 generate_hashes = False
+core_index = True
 
-c = Comparator(host, 'preprocess', method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, 100, 0.2, 0.05, 1, True, 'bla.txt', False)
-c.insert()   
+rebuild = True
 
-# host = 'localhost'
-# method = 'operations_first'
-# dbname = 'experimento_datasus'
-# collectionname = 'db_experimento_datasus'
-# source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/source/'
-# date_columns = 'ano'
-# csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/results/'
-# operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/operations_cid9_cid10.csv'
-# generate_hashes = False
-# core_index = True
+with open('experiment_log.txt','w') as log_file:
+    for operation_mode in ['preprocess']:                   
+        for execution_try in range(10):                          
+            for number_of_operations in range(100, 1000, 100):     
+                for percent_of_heterogeneous_queries in [0.15,0.3]:
+                    for percent_of_insertions in [0,0.05,0.5,0.95,1]:                                   
+                        output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
 
-# rebuild = True
+                        try:
+                            log_file.write('Executing ' + output_file)
+                            c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file, core_index)
 
-# with open('experiment_log.txt','w') as log_file:
-#     for operation_mode in ['preprocess']:                   
-#         for execution_try in range(10):                          
-#             for number_of_operations in range(100, 1000, 100):     
-#                 for percent_of_heterogeneous_queries in [0.15,0.3]:
-#                     for percent_of_insertions in [0,0.05,0.5,0.95,1]:                                   
-#                         output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
-
-#                         try:
-#                             log_file.write('Executing ' + output_file)
-#                             c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file, core_index)
-
-#                             if rebuild:                                
-#                                 log_file.write('Inserting Data\n')
-#                                 log_file.flush()
-#                                 c.insert()
-#                                 rebuild = False                                                                                                   
+                            if rebuild:                                
+                                log_file.write('Inserting Data\n')
+                                log_file.flush()
+                                c.insert()
+                                rebuild = False                                                                                                   
                         
-#                             log_file.write('Generating Queries\n')
-#                             log_file.flush()
-#                             c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
+                            log_file.write('Generating Queries\n')
+                            log_file.flush()
+                            c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
 
-#                             log_file.write('Executing Queries\n')
-#                             log_file.flush()
-#                             c.execute_queries()                            
-#                             log_file.write(f'Finished {output_file}\n')
-#                             log_file.flush()
-#                             time.sleep(10)
-#                         except BaseException:
-#                             log_file.write('Error executing')
-#                             log_file.flush()                     
+                            log_file.write('Executing Queries\n')
+                            log_file.flush()
+                            c.execute_queries()                            
+                            log_file.write(f'Finished {output_file}\n')
+                            log_file.flush()
+                            time.sleep(10)
+                        except BaseException:
+                            log_file.write('Error executing')
+                            log_file.flush()                     
 
-#         rebuild = True
-#         c.drop_database()         
+        rebuild = True
+        c.drop_database()         
                                     
 # # if __name__ == "__main__":
 # #     run_experiment()

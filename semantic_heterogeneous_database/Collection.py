@@ -254,6 +254,11 @@ class Collection:
 
         while len(recheck_group) > 0:
             print('Exec ' + str(i))
+
+            if i == 300:
+                recheck_group.to_csv('recheck_300.csv', index=False)
+                raise BaseException('Too many iterations. Checkpoint saved in recheck_300.csv')
+
             i+=1
 
             print('Recheck:' + str(len(recheck_group)))
@@ -269,14 +274,22 @@ class Collection:
                     j+=1
 
                     print('Affected versions: ' + str(len(affected_versions)))
-                    for v in affected_versions:
+                    for idx in range(len(affected_versions)):
+                        v = affected_versions[idx]
+
+                        versions_updated = False
+
                         if v[2] == 'backward':
                             altered = self.semantic_operations[operationType].evolute_many_backward(v[0], v[1])
                             altered['_max_version_number'] = altered['previous_version']
                             v[1]['_min_version_number'] = v[1]['version_number'] #matched records before semantic evolution
+                            
                             recheck_group = pd.concat([recheck_group,altered, v[1]])   
                             alt_list = list(altered['_original_id'])                             
                             g=g.loc[~g['_original_id'].isin(alt_list)] 
+
+                            if len(altered) >0:
+                                versions_updated = True
                         else:
                             altered = self.semantic_operations[operationType].evolute_many_forward(v[0], v[1])
                             altered['_min_version_number'] = altered['next_version']
@@ -284,6 +297,14 @@ class Collection:
                             recheck_group = pd.concat([recheck_group,altered, v[1]])
                             alt_list = list(altered['_original_id'])                             
                             g=g.loc[~g['_original_id'].isin(alt_list)] 
+
+                            if len(altered) >0:
+                                versions_updated = True
+                        
+                        if versions_updated: ## If there has been any alteration, affected versions must be checked under new min_version_number and max_version_number, to avoid a loop of alterations due to unupdated versions
+                            recheck_affected = pd.concat([g, altered[cols], (v[1])[cols]])
+                            affected_versions = self.semantic_operations[operationType].check_if_many_affected(recheck_affected)
+                        
             
             if len(g) > 0: # O que ta no g nao foi tocado por nenhuma alteração semantica e já pode ser inserido direto
                 self.collection_processed.insert_many(g.to_dict('records'))

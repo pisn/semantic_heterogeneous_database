@@ -47,7 +47,7 @@ class BasicCollection:
                 # Print the full file path
                 file_path = os.path.join(source_folder, file)
                 file_size = os.path.getsize(file_path)
-                max_file_size = 1 * 1024 * 1024  # 15Mb in bytes
+                max_file_size = 5 * 1024 * 1024  # 15Mb in bytes
 
                 if file_size > max_file_size:
                     # Divide the file into smaller files
