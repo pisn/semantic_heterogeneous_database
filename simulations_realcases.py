@@ -389,7 +389,7 @@ rebuild = False
 # c.insert()   
 
 with open('experiment_log.txt','w') as log_file:
-    for operation_mode in ['preprocess']:                   
+    for operation_mode in ['rewrite']:                   
         for execution_try in range(10):                          
             for number_of_operations in range(100, 1000, 100):     
                 for percent_of_heterogeneous_queries in [0.15,0.3]:

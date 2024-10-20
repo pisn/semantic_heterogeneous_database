@@ -469,6 +469,8 @@ class Collection:
 
             while len(to_process) > 0:
                 fieldValue = to_process.pop()
+
+                has_evolution = False
                 
                 #Lets be sure we do not get in an infinite loop here                                
                 if isinstance(fieldValue, tuple):                    
@@ -479,6 +481,8 @@ class Collection:
                     fieldValueQ = fieldValueRaw  
                     valueOriginOriginal = fieldValue[5]
                     fieldValueOriginal = fieldValue[6]
+
+                    has_evolution=True
 
                     ## node in stack already represents a condition to rewrite
                     queryTerms[field].append((fieldValueRaw, p_version_start, version_start, valueOrigin, 'backward', valueOriginOriginal, fieldValueOriginal))
@@ -519,6 +523,7 @@ class Collection:
                 versions = self.collection_versions.count_documents(q)               
                 
                 if(versions > 0): ##Existe alguma coisa a ser processada sobre este campo ainda                    
+
                     versions = self.collection_versions.find(q).sort('version_number')
                     for version in versions:
                         operation_type = version['previous_operation']['type']
@@ -555,6 +560,13 @@ class Collection:
                             # from the original query term. Therefore, it must be considered in the query                        
                             to_process.append((previous_fieldValue_processed,version_number, p_version_start, version_start, fieldValueQ, previous_from_fieldValue, previous_fieldValue))
                     
+                else:
+                    if has_evolution == True:
+                        #This was the last evolution on this field, from newest to oldest. Previous version should be the first version
+                        if len(queryTerms[field]) > 0 and isinstance(queryTerms[field][-1], tuple):
+                            last_value = queryTerms[field].pop()                            
+                            new_tuple = (last_value[0], datetime(1700,1,1), last_value[2], last_value[3], last_value[4], last_value[5], last_value[6])
+                            queryTerms[field].append(new_tuple)
 
     def __assemble_query(self, key, valueSet):        
                
