@@ -351,6 +351,8 @@ class Collection:
 
             while len(to_process) > 0:
                 fieldValue = to_process.pop()
+
+                has_evolution=False
                 
                 #Lets be sure we do not get in an infinite loop here                                
                 if isinstance(fieldValue, tuple):                    
@@ -361,6 +363,8 @@ class Collection:
                     fieldValueQ = fieldValueRaw                        
                     valueOriginOriginal = fieldValue[5]
                     fieldValueOriginal = fieldValue[6]
+
+                    has_evolution=True
 
                     ## node in stack already represents a condition to rewrite
                     queryTerms[field].append((fieldValueRaw, p_version_start, version_start, valueOrigin, 'forward', valueOriginOriginal,fieldValueOriginal))                
@@ -444,6 +448,14 @@ class Collection:
                             #besides from the original value, this value also represents a record that was translated in the past 
                             # from the original query term. Therefore, it must be considered in the query                        
                             to_process.append((next_fieldValue_processed,version_number, p_version_start, version_end, fieldValueQ,previous_fieldValue, next_fieldValue)) 
+                else:
+                    if has_evolution == True:
+                        #This was the last evolution on this field, from oldest to newest. Next version should be the last version
+                        if len(queryTerms[field]) > 0 and isinstance(queryTerms[field][-1], tuple):
+                            last_value = queryTerms[field].pop()                            
+                            new_tuple = (last_value[0], last_value[1], datetime(2300,1,1), last_value[3], last_value[4], last_value[5], last_value[6])
+                            queryTerms[field].append(new_tuple)
+
                 
 
     def __rewrite_queryterms_backward(self, QueryString, queryTerms):
@@ -524,7 +536,7 @@ class Collection:
                 
                 if(versions > 0): ##Existe alguma coisa a ser processada sobre este campo ainda                    
 
-                    versions = self.collection_versions.find(q).sort('version_number')
+                    versions = self.collection_versions.find(q).sort('version_number', DESCENDING)
                     for version in versions:
                         operation_type = version['previous_operation']['type']
                         
@@ -687,11 +699,11 @@ class Collection:
             }
         ]
 
-        for i in range(len(pipeline)):
-            intermediate_results = self.collection.aggregate(pipeline[:i+1])
-            print(f'Results after stage {i+1}:')
-            for result in intermediate_results:
-                print(result)
+        # for i in range(len(pipeline)):
+        #     intermediate_results = self.collection.aggregate(pipeline[:i+1])
+        #     print(f'Results after stage {i+1}:')
+        #     for result in intermediate_results:
+        #         print(result)
         
         # Execute the aggregation pipeline
         results = self.collection.aggregate(pipeline)
