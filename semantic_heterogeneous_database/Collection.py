@@ -607,6 +607,84 @@ class Collection:
 
         return pd.DataFrame.from_records(rows)
     
+    def __transform_results_df(self, transformation_df):        
+        
+        transformation_df['s'] = transformation_df['from']
+        transformation_df.loc[transformation_df['direction']=='backward','from'] = transformation_df.loc[transformation_df['direction']=='backward','to']
+        transformation_df.loc[transformation_df['direction']=='backward','to'] = transformation_df.loc[transformation_df['direction']=='backward','s']
+        transformation_df.drop(columns=['s'],inplace=True)
+        
+        return transformation_df
+    
+    def __execute_agregation(self, finalQuery, transformation_df):
+
+        transformation_documents = transformation_df.to_dict('records')
+
+        pipeline = [
+            {
+                "$match": finalQuery
+            },
+            {
+                "$set": {
+                    "processedFields": {
+                        "$reduce": {
+                            "input": transformation_documents,
+                            "initialValue": "$$ROOT",
+                            "in": {
+                                "$let": {
+                                    "vars": {
+                                        "fieldValue": {
+                                            "$arrayElemAt": [
+                                                {
+                                                    "$filter": {
+                                                        "input": { "$objectToArray": "$$value" },
+                                                        "as": "item",
+                                                        "cond": { "$eq": ["$$item.k", "$$this.field"] }
+                                                    }
+                                                },
+                                                0
+                                            ]
+                                        }
+                                    },
+                                    "in": {
+                                        "$cond": {
+                                            "if": {
+                                                "$and": [
+                                                    { "$eq": ["$$this.from", "$$fieldValue.v"] },
+                                                    { "$gte": ["$$value._valid_from", "$$this.start"] },
+                                                    { "$lte": ["$$value._valid_from", "$$this.end"] }
+                                                ]
+                                            },
+                                            "then": {
+                                                "$mergeObjects": [
+                                                    "$$value",
+                                                    { "$arrayToObject": [[{ "k": "$$this.field", "v": "$$this.to" }]] }
+                                                ]
+                                            },
+                                            "else": "$$value"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },            
+            {
+                "$replaceRoot": { "newRoot": "$processedFields" }
+            }
+        ]
+
+        for i in range(len(pipeline)):
+            intermediate_results = self.collection.aggregate(pipeline[:i+1])
+            print(f'Results after stage {i+1}:')
+            for result in intermediate_results:
+                print(result)
+        
+        # Execute the aggregation pipeline
+        results = self.collection.aggregate(pipeline)
+
+        return results
     
     def __transform_results(self, records, transformation_df):
         records = pd.DataFrame.from_records(records)          
@@ -691,12 +769,10 @@ class Collection:
 
         finalQuery = {'$and' : ands}    
 
-        records = list(self.collection.find(finalQuery))
+        #records = list(self.collection.find(finalQuery))
+        transformation_df = self.__transform_results_df(transformation_df)
 
-        if len(records) >0:
-            records = self.__transform_results(records, transformation_df)      
-        else:
-            records = pd.DataFrame(records)      
+        records = self.__execute_agregation(finalQuery, transformation_df)
         
         # Convert any Timestamp type columns to datetime before converting to dict
         for col in records.select_dtypes(include=['datetime64[ns]']).columns:

@@ -308,7 +308,7 @@ class TranslationOperation:
                     versions_g = versions_df_p.loc[versions_df_p['next_operation.field'] == field]
                     merged_records = pd.merge(DocumentsDataFrame, versions_g, how='left', left_on=field, right_on='next_operation.from')
 
-                    merged_records['match'] = (merged_records['next_operation.field'].notna()) & (merged_records['next_version_valid_from'] < merged_records['_valid_from']) & (merged_records['next_version'] < merged_records['_max_version_number']) & (merged_records['next_version'] >= merged_records['_min_version_number'])
+                    merged_records['match'] = (merged_records['next_operation.field'].notna()) & (merged_records['next_version_valid_from'] > merged_records['_valid_from']) & (merged_records['next_version'] < merged_records['_max_version_number']) & (merged_records['next_version'] >= merged_records['_min_version_number'])
                     matched = merged_records.loc[merged_records['match']]                    
                     
                     return_obj.append((field, matched, 'forward'))           

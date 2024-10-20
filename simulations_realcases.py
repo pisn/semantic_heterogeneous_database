@@ -383,7 +383,10 @@ operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_data
 generate_hashes = False
 core_index = True
 
-rebuild = True
+rebuild = False
+
+# c = Comparator(host, 'preprocess', method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, 100, 0.2, 0.05, 1, True, 'bla.txt', False)
+# c.insert()   
 
 with open('experiment_log.txt','w') as log_file:
     for operation_mode in ['preprocess']:                   
@@ -398,7 +401,7 @@ with open('experiment_log.txt','w') as log_file:
                             c = Comparator(host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, generate_hashes, output_file, core_index)
 
                             if rebuild:                                
-                                log_file.write('Inserting Data\n')
+                                log_file.write('Inserting Data\n') 
                                 log_file.flush()
                                 c.insert()
                                 rebuild = False                                                                                                   
