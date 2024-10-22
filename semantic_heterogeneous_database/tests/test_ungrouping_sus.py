@@ -13,6 +13,7 @@ class UngroupingSusTest(TestBase):
         collection.execute_operation('ungrouping',datetime(1996,1,1), {'fieldName':'cid','oldValue':'08-14 Neoplasmas malignos', 'newValues':['036 Neopl malig do fígado e vias bil intrahepát','046 Neoplasia maligna da bexiga','048 Linfoma não-Hodgkin','049 Mieloma mult e neopl malig de plasmócitos','040 Neoplasia maligna da pele','044 Neoplasia maligna do ovário','052 Restante de neoplasias malignas','032-052 NEOPLASIAS']})
         
         query = collection.find_many({'UF':'SP','municipio':'355030 SAO PAULO','cid':'08-14 Neoplasmas malignos','ano':1995})
+        query = list(query)
         self.assertEqual(query[0]['ocorrencias'],3453,"Os 3453 óbitos por neoplasias em 1995 deveriam continuar aparecendo (query original)")        
 
         query = collection.find_many({'UF':'SP','municipio':'355030 SAO PAULO','cid':'08-14 Neoplasmas malignos','ano':1996})        

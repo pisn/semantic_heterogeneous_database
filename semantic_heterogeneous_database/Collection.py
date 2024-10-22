@@ -798,14 +798,7 @@ class Collection:
 
         records = self.__execute_agregation(finalQuery, transformation_df)
         
-        # Convert any Timestamp type columns to datetime before converting to dict
-        for col in records.select_dtypes(include=['datetime64[ns]']).columns:
-            records[col] = pd.Series(records[col].dt.to_pydatetime(), dtype = object)
-        
-        final_result = records.to_dict('records')
-            
-        
-        return final_result
+        return records
     
 ############################################################################################################################    
 
