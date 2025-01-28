@@ -106,10 +106,13 @@ class Comparator:
         self.collection.execute_many_operations_by_csv(self.operations_file, 'operation_type', 'valid_from')
         
         # if self.core_index and self.operation_mode=='preprocess':
-        #     self.collection.create_index([('_min_version_number',1),('cid',1),('RefDate',1)])
-        #     self.collection.create_index([('_max_version_number',1),('cid',1),('RefDate',1)])
-            # self.collection.create_index([('_min_version_number',1)])
-            # self.collection.create_index([('_max_version_number',1)])
+        #     self.collection.create_index([('cid',1),('municipio',1)])
+        #     # self.collection.create_index([('_max_version_number',1),('cid',1),('RefDate',1)])
+        #     # self.collection.create_index([('_min_version_number',1)])
+        #     # self.collection.create_index([('_max_version_number',1)])
+        # elif self.core_index and self.operation_mode=='rewrite':
+        #     # self.collection.create_index([('RefDate',1)])
+        #     self.collection.create_index([('cid',1),('municipio',1)])
 
         self.collection.insert_many_by_csv(self.source_folder, self.date_columns)
 
@@ -265,6 +268,82 @@ class Comparator:
             for query in queries:
                 file.write(f'{query[0]};{query[1]};{query[2]}\n')
     
+    def generate_queries_list_fields(self):
+        output_file = f'queries_{str(self.percent_of_heterogeneous_queries)}_{str(self.percent_of_insertions)}_{str(self.number_of_operations)}.txt'
+        queries_file = self.csv_destination + output_file
+
+        if os.path.exists(queries_file):            
+            return
+                
+
+        domain_dict_heterogeneous, domain_dict_nonheterogeneous, field_types = self.generate_domain_profile()
+
+        updates = math.floor(self.number_of_operations*self.percent_of_insertions)
+        reads = self.number_of_operations-updates
+
+        heterogeneous_queries = math.floor(reads*self.percent_of_heterogeneous_queries)
+        non_heterogeneous_queries = reads-heterogeneous_queries
+        sequence = ([0]*heterogeneous_queries)
+        sequence.extend([1]*non_heterogeneous_queries)
+
+        heterogeneous_inserts = math.floor(updates*self.percent_of_heterogeneous_queries)
+        non_heterogeneous_inserts = updates-heterogeneous_inserts
+        sequence.extend([2]*heterogeneous_inserts)
+        sequence.extend([3]*non_heterogeneous_inserts)
+        
+        
+        random.shuffle(sequence)
+
+
+        queries = []
+        for s in sequence:            
+            if s<=1:
+                test_obj = {} ##Will be null, tests are only for insertions
+                obj = {}
+
+                field1 = 'cid'
+                field2 = 'municipio'
+                                    
+                if s==0:
+                    ## Generate a non-heterogeneous query                    
+                    
+                    value1 = random.choice(list(domain_dict_nonheterogeneous[field1]))                    
+                    value2 = random.choice(list(domain_dict_nonheterogeneous[field2]))
+                elif s==1:             
+                    ## Generate a heterogeneous query                                           
+                    value1 = random.choice(list(domain_dict_heterogeneous[field1]))                    
+                    value2 = random.choice(list(domain_dict_heterogeneous[field2]))
+
+                obj[field1]  = value1
+                obj[field2]  = value2
+            else:
+                obj = {}
+                test_obj = {}
+                for field in domain_dict_heterogeneous.keys():
+                    value = random.choice(list(domain_dict_heterogeneous[field]))
+                    if(field_types[field]=='date'):
+                        value = value.isoformat()
+                    obj[field] = value
+                for field in domain_dict_nonheterogeneous.keys():
+                    value = random.choice(list(domain_dict_nonheterogeneous[field]))
+                    if(field_types[field]=='date'):
+                        value = value.isoformat()
+                    obj[field] = value       
+
+                heterogeneous_field = random.choice(list(domain_dict_heterogeneous.keys()))                
+                test_obj[heterogeneous_field] = obj[heterogeneous_field]  ## Let's test in sequence if the queries envolving this heterogeneous fields were successfull
+
+                non_heterogeneous_field = random.choice(list(domain_dict_nonheterogeneous.keys()))
+                test_obj[non_heterogeneous_field] = obj[non_heterogeneous_field]  ## Let's test in sequence if the queries envolving this non-heterogeneous fields were successfull
+
+            queries.append((str(s),obj,test_obj))        
+                
+        with open(queries_file, 'w') as file:
+            file.write('type;query;test_query\n')
+            for query in queries:
+                file.write(f'{query[0]};{query[1]};{query[2]}\n')
+    
+
     def DecodeDateTime(self,empDict):
         for key, value in empDict.items():
             if isinstance(value, str) and re.sub(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}', '', value) == '':
@@ -383,15 +462,15 @@ operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_data
 generate_hashes = False
 core_index = True
 
-rebuild = False
+rebuild = True
 
 # c = Comparator(host, 'preprocess', method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, 100, 0.2, 0.05, 1, True, 'bla.txt', False)
 # c.insert()   
 
 with open('experiment_log.txt','w') as log_file:
-    for operation_mode in ['rewrite']:                   
+    for operation_mode in ['preprocess','rewrite']:                   
         for execution_try in range(10):                          
-            for number_of_operations in range(100, 1000, 100):     
+            for number_of_operations in range(100, 300, 100):     
                 for percent_of_heterogeneous_queries in [0.15,0.3]:
                     for percent_of_insertions in [0,0.05,0.5,0.95,1]:                                   
                         output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
@@ -408,7 +487,8 @@ with open('experiment_log.txt','w') as log_file:
                         
                             log_file.write('Generating Queries\n')
                             log_file.flush()
-                            c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
+                            # c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
+                            c.generate_queries_list_fields()
 
                             log_file.write('Executing Queries\n')
                             log_file.flush()

@@ -4,7 +4,7 @@ library(data.table)
 library(ggplot2)
 library(scales)
 
-setwd('/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/results 1 - Both Index/')
+setwd('/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/images/')
 
 process_results <- function(folder) {
   results <- list.files(path=folder, pattern="^result.*\\.txt$", full.names=TRUE) %>%
@@ -192,34 +192,68 @@ plot_execution_time_hetlevel <- function(results_grouped_preprocess, results_gro
           text=element_text(size=18))
 }
 
-
-plot_execution_time_methods <- function(results_grouped_preprocess,results_grouped_rewrite, number_of_operations, heterogeneity_level, title) {
+plot_execution_time_methods <- function(results_grouped_preprocess, results_grouped_rewrite, number_of_operations, heterogeneity_level, title, side_by_side = FALSE) {
   preprocess <- results_grouped_preprocess[results_grouped_preprocess$number_of_operations == number_of_operations & results_grouped_preprocess$heterogeneity_level == heterogeneity_level,]
   rewrite <- results_grouped_rewrite[results_grouped_rewrite$number_of_operations == number_of_operations & results_grouped_rewrite$heterogeneity_level == heterogeneity_level,]
 
   preprocess$scenario <- as.character(preprocess$scenario)
   rewrite$scenario <- as.character(rewrite$scenario)
   
-  ggplot() + 
-    geom_line(data=preprocess, aes(x = as.numeric(scenario), y = mean_time_taken, colour='Preprocess')) + 
-    geom_ribbon(aes(x=as.numeric(scenario), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=preprocess) +
-    geom_point(data=preprocess, aes(x = as.numeric(scenario), y = mean_time_taken, colour='Preprocess'), size=3) + 
+  if (side_by_side) {
+    p1 <- ggplot() + 
+      geom_line(data=preprocess, aes(x = as.numeric(scenario), y = mean_time_taken, colour='Preprocess')) + 
+      geom_ribbon(aes(x=as.numeric(scenario), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=preprocess) +
+      geom_point(data=preprocess, aes(x = as.numeric(scenario), y = mean_time_taken, colour='Preprocess'), size=3) + 
+      xlab('Scenario') + 
+      ylab('Execution Time (s)') +
+      scale_colour_manual('', breaks=c('Preprocess'), values=c('red')) +     
+      scale_x_continuous(breaks=c(0,0.05,0.5,0.95,1), labels=c('Read-Only','Read-Heavy','50/50','Write-Heavy','Write-Only')) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+      theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
+            legend.position = c(.05, .95),
+            legend.justification = c("left", "top"),
+            legend.box.just = "left",
+            legend.margin = margin(6, 6, 6, 6),
+            text=element_text(size=18))
     
-    geom_line(data=rewrite, aes(x = as.numeric(scenario), y = mean_time_taken, colour='Rewrite')) + 
-    geom_ribbon(aes(x=as.numeric(scenario), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=rewrite) +
-    geom_point(data=rewrite, aes(x = as.numeric(scenario), y = mean_time_taken, colour='Rewrite'), size=3) +    
+    p2 <- ggplot() + 
+      geom_line(data=rewrite, aes(x = as.numeric(scenario), y = mean_time_taken, colour='Rewrite')) + 
+      geom_ribbon(aes(x=as.numeric(scenario), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=rewrite) +
+      geom_point(data=rewrite, aes(x = as.numeric(scenario), y = mean_time_taken, colour='Rewrite'), size=3) + 
+      xlab('Scenario') + 
+      ylab('Execution Time (s)') +
+      scale_colour_manual('', breaks=c('Rewrite'), values=c('blue')) +     
+      scale_x_continuous(breaks=c(0,0.05,0.5,0.95,1), labels=c('Read-Only','Read-Heavy','50/50','Write-Heavy','Write-Only')) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+      theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
+            legend.position = c(.65, .95),
+            legend.justification = c("left", "top"),
+            legend.box.just = "left",
+            legend.margin = margin(6, 6, 6, 6),
+            text=element_text(size=18))
     
-    
-    xlab('Scenario') + 
-    ylab('Execution Time (s)') +
-    ggtitle(title) +
-    scale_colour_manual('', breaks=c('Preprocess','Rewrite'), values=c('red','blue')) +     
-    theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
-          legend.position = c(.65, .95),
-          legend.justification = c("left", "top"),
-          legend.box.just = "left",
-          legend.margin = margin(6, 6, 6, 6),
-          text=element_text(size=18))
+    gridExtra::grid.arrange(p1, p2, ncol=2)
+  } else {
+    ggplot() + 
+      geom_line(data=preprocess, aes(x = as.numeric(scenario), y = mean_time_taken, colour='Preprocess')) + 
+      geom_ribbon(aes(x=as.numeric(scenario), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=preprocess) +
+      geom_point(data=preprocess, aes(x = as.numeric(scenario), y = mean_time_taken, colour='Preprocess'), size=3) + 
+      geom_line(data=rewrite, aes(x = as.numeric(scenario), y = mean_time_taken, colour='Rewrite')) + 
+      geom_ribbon(aes(x=as.numeric(scenario), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=rewrite) +
+      geom_point(data=rewrite, aes(x = as.numeric(scenario), y = mean_time_taken, colour='Rewrite'), size=3) +    
+      xlab('Scenario') + 
+      ylab('Execution Time (s)') +
+      ggtitle(title) +
+      scale_colour_manual('', breaks=c('Preprocess','Rewrite'), values=c('red','blue')) +     
+      scale_x_continuous(breaks=c(0,0.05,0.5,0.95,1), labels=c('Read-Only','Read-Heavy','50/50','Write-Heavy','Write-Only')) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+      theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
+            legend.position = c(.65, .95),
+            legend.justification = c("left", "top"),
+            legend.box.just = "left",
+            legend.margin = margin(6, 6, 6, 6),
+            text=element_text(size=18))
+  }
 }
 
 results_preprocess_twofields_noindex <- process_results('/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/results 1 - no index/')
@@ -230,21 +264,24 @@ results_preprocess_onefield_noindex <- process_results('/home/pedro/Documents/US
 ggsave("plot_execution_time_scenarios_preprocess_0.15.png", plot_execution_time_scenarios(results_preprocess_twofields_noindex, 0.15, ''), width = 10, height = 8)
 ggsave("plot_execution_time_scenarios_rewrite_0.15.png", plot_execution_time_scenarios(results_rewrite_twofields_noindex, 0.15, ''), width = 10, height = 8)
 
-ggsave("plot_execution_time_fields_preprocess_write_heavy.png", plot_execution_time_fields(results_preprocess_onefield_noindex, results_preprocess_twofields_noindex, 0.15, 0.05, 'Write-Heavy Scenario (Preprocess)'), width = 10, height = 8)
-ggsave("plot_execution_time_fields_preprocess_read_heavy.png", plot_execution_time_fields(results_preprocess_onefield_noindex, results_preprocess_twofields_noindex, 0.15, 0.95, 'Read-Heavy Scenario (Preprocess)'), width = 10, height = 8)
+ggsave("plot_execution_time_fields_preprocess_write_heavy.png", plot_execution_time_fields(results_preprocess_onefield_noindex, results_preprocess_twofields_noindex, 0.15, 0.05, ''), width = 10, height = 8)
+ggsave("plot_execution_time_fields_preprocess_read_heavy.png", plot_execution_time_fields(results_preprocess_onefield_noindex, results_preprocess_twofields_noindex, 0.15, 0.95, ''), width = 10, height = 8)
 
-ggsave("plot_execution_time_heterogeneitylevel_preprocess_write_heavy.png", plot_execution_time_heterogeneitylevel(results_preprocess_twofields_noindex, 0.05, 'Pre-Process Method', 'Write-Heavy'), width = 10, height = 8)
-ggsave("plot_execution_time_heterogeneitylevel_preprocess_read_heavy.png", plot_execution_time_heterogeneitylevel(results_preprocess_twofields_noindex, 0.95, 'Pre-Process Method', 'Read-Heavy'), width = 10, height = 8)
+ggsave("plot_execution_time_heterogeneitylevel_preprocess_write_heavy.png", plot_execution_time_heterogeneitylevel(results_preprocess_twofields_noindex, 0.05, '', 'Write-Heavy'), width = 10, height = 8)
+ggsave("plot_execution_time_heterogeneitylevel_preprocess_read_heavy.png", plot_execution_time_heterogeneitylevel(results_preprocess_twofields_noindex, 0.95, '', 'Read-Heavy'), width = 10, height = 8)
+ggsave("plot_execution_time_heterogeneitylevel_rewrite_write_heavy.png", plot_execution_time_heterogeneitylevel(results_rewrite_twofields_noindex, 0.05, '', 'Write-Heavy'), width = 10, height = 8)
+ggsave("plot_execution_time_heterogeneitylevel_rewrite_read_heavy.png", plot_execution_time_heterogeneitylevel(results_rewrite_twofields_noindex, 0.95, '', 'Read-Heavy'), width = 10, height = 8)
 
-ggsave("plot_execution_time_methods_500op_30_2F.png", plot_execution_time_methods(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 500, 0.3, 'Scenarios (500op, 30%, 2F)'), width = 10, height = 8)
+ggsave("plot_execution_time_methods_500op_30_2F.png", plot_execution_time_methods(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 500, 0.3, '', FALSE), width = 10, height = 8)
+ggsave("plot_execution_time_methods_sep_500op_30_2F.png", plot_execution_time_methods(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 500, 0.3, '', TRUE), width = 15, height = 8)
 
-ggsave("plot_execution_time_opsmethod_read_heavy_30_2F.png", plot_execution_time_opsmethod(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 0.05, 0.3, 'Read-Heavy (30%, 2F)'), width = 10, height = 8)
-ggsave("plot_execution_time_opsmethod_write_heavy_30_2F.png", plot_execution_time_opsmethod(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 0.95, 0.3, 'Write-Heavy (30%, 2F)'), width = 10, height = 8)
-ggsave("plot_execution_time_opsmethod_write_only_30_2F.png", plot_execution_time_opsmethod(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 1, 0.3, 'Write-Only (30%, 2F)'), width = 10, height = 8)
+ggsave("plot_execution_time_opsmethod_read_heavy_30_2F.png", plot_execution_time_opsmethod(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 0.05, 0.3, ''), width = 10, height = 8)
+ggsave("plot_execution_time_opsmethod_write_heavy_30_2F.png", plot_execution_time_opsmethod(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 0.95, 0.3, ''), width = 10, height = 8)
+ggsave("plot_execution_time_opsmethod_write_only_30_2F.png", plot_execution_time_opsmethod(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 1, 0.3, ''), width = 10, height = 8)
 
-ggsave("plot_execution_time_hetlevel_read_heavy_500_2F.png", plot_execution_time_hetlevel(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 0.05, 500, 'Read-Heavy (500, 2F)'), width = 10, height = 8)
-ggsave("plot_execution_time_hetlevel_write_heavy_500_2F.png", plot_execution_time_hetlevel(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 0.95, 500, 'Write-Heavy (500, 2F)'), width = 10, height = 8)
-ggsave("plot_execution_time_hetlevel_write_only_500_2F.png", plot_execution_time_hetlevel(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 1, 500, 'Write-Only (500, 2F)'), width = 10, height = 8)
+ggsave("plot_execution_time_hetlevel_read_heavy_500_2F.png", plot_execution_time_hetlevel(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 0.05, 500, ''), width = 10, height = 8)
+ggsave("plot_execution_time_hetlevel_write_heavy_500_2F.png", plot_execution_time_hetlevel(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 0.95, 500, ''), width = 10, height = 8)
+ggsave("plot_execution_time_hetlevel_write_only_500_2F.png", plot_execution_time_hetlevel(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 1, 500, ''), width = 10, height = 8)
 
 
 ### Table
