@@ -136,6 +136,40 @@ plot_execution_time_heterogeneitylevel <- function(results_grouped, scenario, ti
 }
 
 
+plot_execution_time_heterogeneitylevel_bars <- function(results_grouped, number_of_operations, title) {
+  het30 <- results_grouped[results_grouped$heterogeneity_level == 0.3,]
+  het15 <- results_grouped[results_grouped$heterogeneity_level == 0.15,]
+  
+  het30$heterogeneity_level = '30%'
+  het15$heterogeneity_level = '15%'
+
+  results = rbind(het30,het15)
+  results = results[results$number_of_operations==number_of_operations,]
+  
+  results$scenario = factor(results$scenario, levels = c(0,0.05,0.5,0.95,1), labels=c("Read-Only","Read-Heavy","50/50","Write-Heavy","Write-Only"))
+  
+  ggplot() + 
+    geom_bar(data=results, aes(x = scenario, y = mean_time_taken, fill=heterogeneity_level), stat="identity", position=position_dodge(width=0.8), width = 0.7) +     
+    geom_errorbar(data=results, aes(x = scenario, ymin = lower_bound, ymax = upper_bound, group = heterogeneity_level), 
+                  width = 0.2, position=position_dodge(width=0.8), size=1) +
+    
+    xlab('Scenario') + 
+    ylab('Execution Time (s)') +
+    ggtitle(title) +
+    scale_fill_manual('', breaks=c('30%','15%'), 
+                      values=c('blue','red')) + 
+    theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
+          legend.position = "bottom",
+          legend.justification = "center",
+          # legend.box.just = "center",
+          legend.margin = margin(6, 6, 6, 6),
+          legend.text = element_text(size=25),
+          legend.title = element_text(size=20),
+          axis.text.x= element_text(angle=45, hjust=1, size=20),
+          text=element_text(size=25))
+}
+
+
 plot_execution_time_opsmethod <- function(results_grouped_preprocess, results_grouped_rewrite, scenario, heterogeneity_level, title) {
   preprocess <- results_grouped_preprocess[results_grouped_preprocess$scenario == scenario & results_grouped_preprocess$heterogeneity_level == heterogeneity_level,]
   rewrite <- results_grouped_rewrite[results_grouped_rewrite$scenario == scenario & results_grouped_rewrite$heterogeneity_level == heterogeneity_level,]
@@ -344,6 +378,12 @@ ggsave("plot_execution_time_heterogeneitylevel_preprocess_read_heavy.png", plot_
 ggsave("plot_execution_time_heterogeneitylevel_rewrite_write_heavy.png", plot_execution_time_heterogeneitylevel(results_rewrite_twofields_noindex, 0.05, '', 'Write-Heavy'), width = 10, height = 8)
 ggsave("plot_execution_time_heterogeneitylevel_rewrite_read_heavy.png", plot_execution_time_heterogeneitylevel(results_rewrite_twofields_noindex, 0.95, '', 'Read-Heavy'), width = 10, height = 8)
 
+ggsave("plot_execution_time_heterogeneitylevel_bars_preprocess.png", plot_execution_time_heterogeneitylevel_bars(results_preprocess_twofields_noindex, 500, ''), width = 10, height = 8)
+ggsave("plot_execution_time_heterogeneitylevel_bars_rewrite.png", plot_execution_time_heterogeneitylevel_bars(results_rewrite_twofields_noindex, 500, ''), width = 10, height = 8)
+
+
+
+
 ggsave("plot_execution_time_methods_500op_30_2F.png", plot_execution_time_methods(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 500, 0.3, '', FALSE), width = 10, height = 8)
 ggsave("plot_execution_time_methods_sep_500op_30_2F.png", plot_execution_time_methods(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 500, 0.3, '', TRUE), width = 15, height = 8)
 
@@ -417,7 +457,6 @@ plot_execution_index_methods <- function(results_index_preprocess, results_index
           legend.margin = margin(6, 6, 6, 6),
           text=element_text(size=18))
 }
-
 plot_execution_time_scenarios_all_bar <- function(results_preprocess_noindex, results_rewrite_noindex, results_preprocess_indexed, results_rewrite_indexed, heterogeneity_level, number_of_operations, title) {
   results_preprocess_noindex$approach = 'Preprocess (No Index)'
   results_rewrite_noindex$approach = 'Rewrite (No Index)'
@@ -429,23 +468,26 @@ plot_execution_time_scenarios_all_bar <- function(results_preprocess_noindex, re
   results$scenario = factor(results$scenario, levels = c(0,0.05,0.5,0.95,1), labels=c("Read-Only","Read-Heavy","50/50","Write-Heavy","Write-Only"))
   
   ggplot() + 
-    geom_bar(data=results, aes(x = scenario, y = mean_time_taken, fill=approach), stat="identity", position='dodge', width = 0.5) + 
+    geom_bar(data=results, aes(x = scenario, y = mean_time_taken, fill=approach), stat="identity", position=position_dodge(width=0.8), width = 0.7) + 
     scale_y_log10() + 
     geom_errorbar(data=results, aes(x = scenario, ymin = lower_bound, ymax = upper_bound, group = approach), 
-                  width = 0.2, position=position_dodge(width=0.5)) +
+                  width = 0.2, position=position_dodge(width=0.8), size=1) +
     
     xlab('Scenario') + 
     ylab('Execution Time (log(s))') +
     ggtitle(title) +
-    scale_fill_manual('', breaks=c('Rewrite (No Index)','Rewrite (Indexed)','Preprocess (No Index)','Preprocess (Indexed)'), 
-                      values=c('red','pink','blue','lightblue')) + 
+    scale_fill_manual('', breaks=c('Preprocess (Indexed)','Preprocess (No Index)','Rewrite (Indexed)','Rewrite (No Index)'), 
+                      values=c('lightblue','blue','pink','red')) + 
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
-          legend.position = c(.7, .95),
-          legend.justification = c("left", "top"),
-          legend.box.just = "left",
+          legend.position = "bottom",
+          legend.justification = "center",
+          # legend.box.just = "center",
           legend.margin = margin(6, 6, 6, 6),
-          axis.text.x= element_text(angle=45, hjust=1),
-          text=element_text(size=18))
+          legend.text = element_text(size=25),
+          legend.title = element_text(size=20),
+          axis.text.x= element_text(angle=45, hjust=1, size=20),
+          text=element_text(size=25)) +
+    guides(fill=guide_legend(nrow=2, byrow=TRUE))
 }
 
 
@@ -472,7 +514,7 @@ plot_execution_time_scenarios_bar(results_preprocess_twofields_indexed, results_
 plot_execution_time_scenarios_all_bar(results_preprocess_twofields_noindex,results_rewrite_twofields_noindex,results_preprocess_twofields_indexed, results_rewrite_twofields_indexed, 0.3, 500, '')
 
 ggsave("plot_execution_time_scenarios_approaches_indexed_500_2F.png", plot_execution_time_scenarios_bar(results_preprocess_twofields_indexed, results_rewrite_twofields_indexed, 0.3, 500, ''), width = 10, height = 8)
-ggsave("plot_execution_time_scenarios_approaches_all_200_2F.png", plot_execution_time_scenarios_all_bar(results_preprocess_twofields_noindex,results_rewrite_twofields_noindex,results_preprocess_twofields_indexed, results_rewrite_twofields_indexed, 0.3, 500, ''), width = 10, height = 8)
+ggsave("plot_execution_time_scenarios_approaches_all_200_2F.png", plot_execution_time_scenarios_all_bar(results_preprocess_twofields_noindex,results_rewrite_twofields_noindex,results_preprocess_twofields_indexed, results_rewrite_twofields_indexed, 0.3, 500, ''), width = 11, height = 8)
 
 
 ### Table

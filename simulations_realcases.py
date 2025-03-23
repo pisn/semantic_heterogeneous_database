@@ -455,10 +455,10 @@ host = 'localhost'
 method = 'operations_first'
 dbname = 'experimento_datasus'
 collectionname = 'db_experimento_datasus'
-source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/source/'
+source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_indices/source/'
 date_columns = 'RefDate'
-csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/results/'
-operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_2/operations_cid9_cid10.csv'
+csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_indices/results/'
+operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_indices/operations_cid9_cid10.csv'
 generate_hashes = False
 core_index = True
 
@@ -467,12 +467,18 @@ rebuild = True
 # c = Comparator(host, 'preprocess', method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, 100, 0.2, 0.05, 1, True, 'bla.txt', False)
 # c.insert()   
 
+i = 0
+
 with open('experiment_log.txt','w') as log_file:
-    for operation_mode in ['preprocess','rewrite']:                   
-        for execution_try in range(10):                          
-            for number_of_operations in range(100, 300, 100):     
+    for operation_mode in ['rewrite']:                   
+        for execution_try in range(2,10):                          
+            for number_of_operations in [500]:#range(300, 1000, 100):     
                 for percent_of_heterogeneous_queries in [0.15,0.3]:
-                    for percent_of_insertions in [0,0.05,0.5,0.95,1]:                                   
+                    for percent_of_insertions in [0,0.05,0.5,0.95,1]: 
+                        if i < 5:
+                            i += 1
+                            continue
+
                         output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'
 
                         try:
