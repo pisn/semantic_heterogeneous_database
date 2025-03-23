@@ -46,11 +46,11 @@ class TranslationOperation:
             
             ##For processed records unaffected by the translation, ending in the previous version, version interval should be extended to include the new version,        
 
-            res = self.collection.collection_processed.update_many({'$and' : [{'_max_version_number' : previous_version['version_number']},
-                                                                        {fieldName : {'$ne' : oldValue}},
-                                                                        {fieldName : {'$ne' : newValue}}
+            # res = self.collection.collection_processed.update_many({'$and' : [{'_max_version_number' : previous_version['version_number']},
+            #                                                             {fieldName : {'$ne' : oldValue}},
+            #                                                             {fieldName : {'$ne' : newValue}}
                                                                 
-                                                                ]}, {'$set' : {'_max_version_number' : new_version_number}})
+            #                                                     ]}, {'$set' : {'_max_version_number' : new_version_number}})
             
             
             ##Spliting processed registers affected by the translation where the new version is within the min and max version number

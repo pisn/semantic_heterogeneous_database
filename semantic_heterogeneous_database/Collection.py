@@ -53,14 +53,14 @@ class Collection:
         
         #initializing first version
         if(self.current_version == None):
-            self.current_version = 0
+            self.current_version = 100
            
             first_version = {
                 "current_version":1,
                 "version_valid_from":datetime(1700,1,1),
                 "previous_version":None, 
                 "previous_operation":None,
-                "version_number":0, 
+                "version_number":100, 
                 "next_version":None,
                 "next_operation":None
             }
@@ -132,8 +132,8 @@ class Collection:
         
         check_list = list()                
         insertion_list = list()                
-        minVersion = float(self.versions_df['version_number'].min())
-        maxVersion = float(self.versions_df['version_number'].max())        
+        minVersion = float('-inf')
+        maxVersion = float('inf')
         p['_min_version_number'] = minVersion
         p['_max_version_number'] = maxVersion
         check_list.append(p)        
@@ -142,7 +142,7 @@ class Collection:
             document = check_list.pop()           
 
             for operationType in self.semantic_operations:
-                if operationType in ['grouping','translation']: ##somente para teste, depois eu implemento no desagrupamento também                    
+                if operationType in ['grouping','translation','ungrouping']: ##somente para teste, depois eu implemento no desagrupamento também                    
                     affected_versions = self.semantic_operations[operationType].check_if_affected(document)                                       
                     
                     if affected_versions != None:                                           
@@ -238,8 +238,8 @@ class Collection:
 
         processed_group.insert(len(processed_group.columns),'_original_id', insertedDocuments.inserted_ids) 
         
-        minVersion = float(self.versions_df['version_number'].min())
-        maxVersion = float(self.versions_df['version_number'].max()) 
+        minVersion = float('-inf')
+        maxVersion = float('inf') 
  
         processed_group['_evoluted'] = False                     
         processed_group['_min_version_number'] = minVersion
@@ -708,50 +708,8 @@ class Collection:
         # Execute the aggregation pipeline
         results = self.collection.aggregate(pipeline)
 
-        return results
-    
-    def __transform_results(self, records, transformation_df):
-        records = pd.DataFrame.from_records(records)          
-        
-        transformation_df['s'] = transformation_df['from']
-        transformation_df.loc[transformation_df['direction']=='backward','from'] = transformation_df['to']
-        transformation_df.loc[transformation_df['direction']=='backward','to'] = transformation_df['s']
-        transformation_df.drop(columns=['s'],inplace=True)
-        
-        for field, transformations in transformation_df.groupby('field'):
-            columns = list(records.columns)
-            columns.append(field+'_original')
-            columns.append('valid_from_evoluted')
+        return results   
 
-            records['valid_from_evoluted'] = records['_valid_from']
-            records[field+'_original'] = records[field]
-
-            ## the "end" column is the limit of valid_date from records to be updated. 
-            ## the "end_validity" is the limit until when this updated version is up to date. After it, it becomes obsolete
-            ## this is important to specify which version should be returned
-            ends = transformations.sort_values('end')[['end']].drop_duplicates()
-            ends['end_validity'] = ends['end'].shift(-1)
-            ends['end_validity'].fillna(datetime(2200,12,31), inplace=True)
-            
-
-            transformations = pd.merge(transformations, ends, on=['end'])
-
-            affected_records = pd.merge(transformations, records, left_on='from', right_on=field)            
-            affected_records = affected_records.loc[(affected_records['valid_from_evoluted']>=affected_records['start'])&(affected_records['valid_from_evoluted']<=affected_records['end'])]            
-
-            while len(affected_records) > 0:                            
-                affected_records[field] = affected_records['to']
-                affected_records['valid_from_evoluted'] = affected_records['end_validity']
-            
-                records = records.loc[~records['_id'].isin(affected_records['_id'])]
-                records = pd.concat([records, affected_records[columns]])        
-
-                affected_records = pd.merge(transformations, records, left_on='from', right_on=field)                                    
-                affected_records = affected_records.loc[(affected_records['valid_from_evoluted']>=affected_records['start'])&(affected_records['valid_from_evoluted']<=affected_records['end'])]            
-
-            records.drop(columns=['valid_from_evoluted'], inplace=True)        
-        
-        return records
 
     def __rewrite_and_query(self, QueryString):
         queryTermsForward = {}        

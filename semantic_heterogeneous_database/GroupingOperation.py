@@ -50,10 +50,10 @@ class GroupingOperation:
         if self.collection.operation_mode == 'preprocess':
             ##For processed records unaffected by the grouping, ending in the previous version, version interval should be extended to include the new version,        
 
-            res = self.collection.collection_processed.update_many({'$and' : [{'_max_version_number' : previous_version['version_number']},
-                                                                {fieldName : {'$nin' : oldValues}},
-                                                                {fieldName : {'$ne' : newValue}}
-                                                                ]}, {'$set' : {'_max_version_number' : new_version_number}})
+            # res = self.collection.collection_processed.update_many({'$and' : [{'_max_version_number' : previous_version['version_number']},
+            #                                                     {fieldName : {'$nin' : oldValues}},
+            #                                                     {fieldName : {'$ne' : newValue}}
+            #                                                     ]}, {'$set' : {'_max_version_number' : new_version_number}})
             
             
             ##Spliting processed registers affected by the grouping where the new version is within the min and max version number
