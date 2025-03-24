@@ -42,86 +42,50 @@ class GroupingOperation:
             next_version = next(next_version,None)
             new_version_number = previous_version['version_number'] + (next_version['version_number'] - previous_version['version_number'])/2
         else:
-            next_version = None
+            next_version = {'version_number': float('inf')}
             self.collection.current_version = self.collection.current_version + 100 #this is the newest version now
             new_version_number = self.collection.current_version
             
         
-        if self.collection.operation_mode == 'preprocess':
-            ##For processed records unaffected by the grouping, ending in the previous version, version interval should be extended to include the new version,        
+        if self.collection.operation_mode == 'preprocess':                                    
+    
+            
+            #Copying all records affected by the translation to a temporary collection
+            res = self.collection.collection_processed.aggregate([{ '$match': {'$and': [
+                                                                            {'_min_version_number' : {'$lte' : new_version_number}},
+                                                                            {'_max_version_number' : {'$gte' : new_version_number}},
+                                                                            {'$or' : [{fieldName : {'$in' : oldValues}},
+                                                                                    {fieldName : newValue}
+                                                                                    ]
+                                                                            } 
+                                                                        ]
+                                                            } 
+                                                }, 
+                                                {'$unset': '_id'},
+                                                { '$out' : "to_split" } ])
 
-            # res = self.collection.collection_processed.update_many({'$and' : [{'_max_version_number' : previous_version['version_number']},
-            #                                                     {fieldName : {'$nin' : oldValues}},
-            #                                                     {fieldName : {'$ne' : newValue}}
-            #                                                     ]}, {'$set' : {'_max_version_number' : new_version_number}})
-            
-            
-            ##Spliting processed registers affected by the grouping where the new version is within the min and max version number
-            if(next_version != None):
-                res = self.collection.collection_processed.update_many({'$and' : [{'_min_version_number' : next_version['version_number']},
+            ##part 1 of split - old registers is cut until last version before translation          
+            res = self.collection.collection_processed.update_many({'$and': [
+                                                                    {'_min_version_number' : {'$lte' : new_version_number}},
+                                                                    {'_max_version_number' : {'$gte' : new_version_number}},
                                                                     {'$or' : [{fieldName : {'$in' : oldValues}},
-                                                                                {fieldName : newValue}
-                                                                                ]
-                                                                    }
-                                                                ]}, {'$set' :{'_min_version_number' : new_version_number}})                                                              
-        
-                
-                #Copying all records in this situation
-                res = self.collection.collection_processed.aggregate([{ '$match': {'$and': [
-                                                                                {'_min_version_number' : {'$lte' : previous_version['version_number']}},
-                                                                                {'_max_version_number' : {'$gte' : next_version['version_number']}},
-                                                                                {'$or' : [{fieldName : {'$in' : oldValues}},
-                                                                                        {fieldName : newValue}
-                                                                                        ]
-                                                                                } 
+                                                                            {fieldName : newValue}
                                                                             ]
-                                                                } 
-                                                    }, 
-                                                    {'$unset': '_id'},
-                                                    { '$out' : "to_split" } ])
-
-                ##part 1 of split - old registers is cut until last version before translation          
-                res = self.collection.collection_processed.update_many({'$and': [
-                                                                        {'_min_version_number' : {'$lte' : previous_version['version_number']}},
-                                                                        {'_max_version_number' : {'$gte' : next_version['version_number']}},
-                                                                        {'$or' : [{fieldName : {'$in' : oldValues}},
-                                                                                {fieldName : newValue}
-                                                                                ]
-                                                                        } 
-                                                            ]
-                                                            },
-                                                            {'$set' : {'_max_version_number' : previous_version['version_number']}}
-                                                        )
-                
-                ##part 2 of split - inserting registers starting from new version. Therefore, in the end of the process, records
-                #have been splitted in two parts. 
-                res = self.collection.db['to_split'].update_many({},
-                                                    {'$set' : {'_min_version_number' : new_version_number}}
-                                                    )
-
-                res = self.collection.db['to_split'].aggregate([{'$match' : {}}, {'$merge': {'into' : self.collection.collection_processed.name, 'whenMatched' : 'fail'}}])          
-                self.collection.db['to_split'].drop()
-            
-            else: #New version is terminal, no need to split, but need to create another node
-                #copying records
-                res = self.collection.collection_processed.aggregate([{ '$match': {'$and': [
-                                                                                {'_max_version_number' : previous_version['version_number']},                                                                            
-                                                                                {'$or' : [{fieldName : {'$in' : oldValues}},                                                                                                                                                                                                                                                   
-                                                                                        {fieldName : newValue}
-                                                                                        ]
-                                                                                } 
-                                                                                ]
                                                                     } 
-                                                            },
-                                                            {'$unset': '_id'},
-                                                        { '$out' : "to_split" } ])
-                #updating version 
-                res = self.collection.db['to_split'].update_many({},
-                                                    {'$set' : {'_min_version_number' : new_version_number, '_max_version_number' : new_version_number}}
+                                                        ]
+                                                        },
+                                                        {'$set' : {'_max_version_number' : previous_version['version_number']}}
                                                     )
+            
+            ##part 2 of split - inserting registers starting from new version. Therefore, in the end of the process, records
+            #have been splitted in two parts. 
+            res = self.collection.db['to_split'].update_many({},
+                                                {'$set' : {'_min_version_number' : new_version_number}}
+                                                )
 
-                res = self.collection.db['to_split'].aggregate([{'$match' : {}}, {'$merge': {'into' : self.collection.collection_processed.name, 'whenMatched' : 'fail'}}])          
-                self.collection.db['to_split'].drop()
+            res = self.collection.db['to_split'].aggregate([{'$match' : {}}, {'$merge': {'into' : self.collection.collection_processed.name, 'whenMatched' : 'fail'}}])          
+            self.collection.db['to_split'].drop()            
+            
 
 
         new_version = {
@@ -152,7 +116,7 @@ class GroupingOperation:
         if(res.matched_count != 1):
             print("Previous version not matched")
 
-        if(next_version != None):
+        if(next_version != None and 'version_valid_from' in next_version):
             new_version['next_version'] = next_version['version_number']
             new_version['next_version_valid_from'] = next_version['version_valid_from']
             new_version['next_operation'] = previous_version['next_operation']            
