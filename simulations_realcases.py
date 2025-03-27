@@ -397,8 +397,7 @@ class Comparator:
 
                     
                 else:
-                    print('Executing Insertion ' + str(idx))
-                    test_query = row['test_query']
+                    print('Executing Insertion ' + str(idx))                    
 
                     ##Insertion                    
                     try:
