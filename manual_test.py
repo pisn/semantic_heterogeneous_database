@@ -49,7 +49,7 @@ pass
 # testeQuery = myCollection.find_many({'cidade' : 'Berlim'})
 # myCollection.pretty_print(testeQuery)
 
-myCollection = BasicCollection('sus', 'mortalidade', 'localhost','preprocess')     
+# myCollection = BasicCollection('sus', 'mortalidade', 'localhost','preprocess')     
 # translationOperation = TranslationOperation(myCollection)
 
 #startTime = time.time()
@@ -62,8 +62,8 @@ folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/mortalidade_ano'
 
 # pass
 
-query = myCollection.find_many({'cid':'35 Doenças do aparelho urinário','ano':1995})
-myCollection.pretty_print(query)
+# query = myCollection.find_many({'cid':'35 Doenças do aparelho urinário','ano':1995})
+# myCollection.pretty_print(query)
 
 #executionTime = (time.time() - startTim e)
 #print('Execution time for insertion: ' + str(executionTime))
@@ -81,11 +81,16 @@ myCollection.pretty_print(query)
 # query = myCollection.find_many({'Municipio': 'Balneário Piçarras'})
 # myCollection.pretty_print(query)
 
-# myCollection = BasicCollection('SBBD', 'artigo')     
-# myCollection.insert_one('{"city": "City A", "state":"State Z", "population": 51456}', datetime(1996,7,6))
-# myCollection.insert_one('{"city": "City B", "state":"State Z", "population": 79854}', datetime(2014,4,13))
+myCollection = BasicCollection('SBBD', 'artigo')     
+myCollection.insert_one('{"city": "City A", "state":"State Z", "population": 51456}', datetime(1996,7,6))
+myCollection.insert_one('{"city": "City B", "state":"State Z", "population": 79854}', datetime(2014,4,13))
+myCollection.insert_one('{"city": "City C", "state":"State Z", "population": 80000}', datetime(2019,4,13))
 
-# myCollection.execute_operation('translation',datetime(2004,6,1), {'fieldName':'city', 'oldValue':'City A', 'newValue':'City B'})
+
+myCollection.execute_operation('translation',datetime(2005,6,1), {'fieldName':'city', 'oldValue':'City B', 'newValue':'City C'})
+myCollection.execute_operation('translation',datetime(2004,6,1), {'fieldName':'city', 'oldValue':'City A', 'newValue':'City B'})
+
+##Resultado deve ser tres city C no final.
 
 # query = myCollection.find_many({'city': 'City A'})
 # myCollection.pretty_print(query)

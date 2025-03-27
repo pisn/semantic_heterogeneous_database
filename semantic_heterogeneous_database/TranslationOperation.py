@@ -3,6 +3,8 @@ from argparse import ArgumentError
 from ensurepip import version
 from pymongo import  ASCENDING, DESCENDING
 import pandas as pd
+import random
+import uuid
 
 
 class TranslationOperation:
@@ -34,52 +36,90 @@ class TranslationOperation:
         #In the other hand, if there are, this new version must be registered with a number before the previous version and the next version
         
         if(next_version > 0):
-            next_version = self.collection.collection_versions.find({'version_valid_from' : {'$gte' : validFromDate}}).sort([('version_valid_from',1),('version_number',1)])        
-            next_version = next(next_version,None)
-            new_version_number = previous_version['version_number'] + (next_version['version_number'] - previous_version['version_number'])/2
+            next_versions = self.collection.collection_versions.find({'version_valid_from' : {'$gte' : validFromDate}}).sort([('version_valid_from', 1), ('version_number', 1)])
+            next_version = next(next_versions, None)
+            if next_version and next_version['version_valid_from'] == validFromDate:
+                same_date_versions = [next_version] + [v for v in next_versions if v['version_valid_from'] == validFromDate]
+                if len(same_date_versions) > 1:
+                    next_version = random.choice(same_date_versions)
+                    previous_version = self.collection.collection_versions.find({'version_number': next_version['previous_version']}).sort([('version_valid_from', -1), ('version_number', -1)])
+                    previous_version = next(previous_version, None)
+            
+            new_version_number = random.uniform(previous_version['version_number'], next_version['version_number'])
         else:
             next_version = {'version_number': float('inf')}
-            self.collection.current_version = self.collection.current_version + 100 #this is the newest version now
+            self.collection.current_version = self.collection.current_version + 1000000 #this is the newest version now
             new_version_number = self.collection.current_version
+
+        print(f'New version number: {new_version_number}, valid from: {validFromDate}')
             
-        if self.collection.operation_mode == 'preprocess':            
-    
-            
+        if self.collection.operation_mode == 'preprocess':       
+            ## Backward
+
+            temporary_collection = str(uuid.uuid4())            
             #Copying all records affected by the translation to a temporary collection
             res = self.collection.collection_processed.aggregate([{ '$match': {'$and': [
                                                                             {'_min_version_number' : {'$lte' : new_version_number}},
-                                                                            {'_max_version_number' : {'$gte' : new_version_number}},
-                                                                            {'$or' : [{fieldName : oldValue},
-                                                                                    {fieldName : newValue}
-                                                                                    ]
-                                                                            } 
+                                                                            {'_max_version_number' : {'$gt' : new_version_number}},
+                                                                            {fieldName : newValue}
+                                                                            
                                                                         ]
                                                             } 
                                                 }, 
                                                 {'$unset': '_id'},
-                                                { '$out' : "to_split" } ])
+                                                { '$out' : temporary_collection } ])
 
             ##part 1 of split - old registers are cut until last version before translation          
             res = self.collection.collection_processed.update_many({'$and': [
                                                                     {'_min_version_number' : {'$lte' : new_version_number}},
-                                                                    {'_max_version_number' : {'$gte' : new_version_number}},                                                                    
-                                                                    {'$or' : [{fieldName : oldValue},
-                                                                            {fieldName : newValue}
-                                                                            ]
-                                                                    } 
+                                                                    {'_max_version_number' : {'$gt' : new_version_number}},                                                                    
+                                                                    {fieldName : newValue} 
                                                         ]
                                                         },
-                                                        {'$set' : {'_max_version_number' : previous_version['version_number']}}
+                                                        {'$set' : {'_min_version_number' : new_version_number}}
                                                     )
             
             ##part 2 of split - inserting registers starting from new version. Therefore, in the end of the process, records
             #have been splitted in two parts. 
-            res = self.collection.db['to_split'].update_many({},
-                                                {'$set' : {'_min_version_number' : new_version_number}}
+            res = self.collection.db[temporary_collection].update_many({},
+                                                {'$set' : {'_max_version_number' : new_version_number, fieldName:oldValue}}
                                                 )
 
-            res = self.collection.db['to_split'].aggregate([{'$match' : {}}, {'$merge': {'into' : self.collection.collection_processed.name, 'whenMatched' : 'fail'}}])          
-            self.collection.db['to_split'].drop()
+            res = self.collection.db[temporary_collection].aggregate([{'$match' : {}}, {'$merge': {'into' : self.collection.collection_processed.name, 'whenMatched' : 'fail'}}])          
+            self.collection.db[temporary_collection].drop()           
+            
+            ## Forward
+            temporary_collection = str(uuid.uuid4())
+            #Copying all records affected by the translation to a temporary collection
+            res = self.collection.collection_processed.aggregate([{ '$match': {'$and': [
+                                                                            {'_min_version_number' : {'$lte' : new_version_number}},
+                                                                            {'_max_version_number' : {'$gt' : new_version_number}},
+                                                                            {fieldName : oldValue} 
+                                                                        ]
+                                                            } 
+                                                }, 
+                                                {'$unset': '_id'},
+                                                { '$out' : temporary_collection } ])
+
+            ##part 1 of split - old registers are cut until last version before translation          
+            res = self.collection.collection_processed.update_many({'$and': [
+                                                                    {'_min_version_number' : {'$lte' : new_version_number}},
+                                                                    {'_max_version_number' : {'$gt' : new_version_number}},                                                                    
+                                                                    {fieldName : oldValue}                                                                     
+                                                        ]
+                                                        },
+                                                        {'$set' : {'_max_version_number' : new_version_number}}
+                                                    )
+            
+            ##part 2 of split - inserting registers starting from new version. Therefore, in the end of the process, records
+            #have been splitted in two parts. 
+            res = self.collection.db[temporary_collection].update_many({},
+                                                {'$set' : {'_min_version_number' : new_version_number, fieldName:newValue}}
+                                                )
+
+            res = self.collection.db[temporary_collection].aggregate([{'$match' : {}}, {'$merge': {'into' : self.collection.collection_processed.name, 'whenMatched' : 'fail'}}])          
+            self.collection.db[temporary_collection].drop()
+            
             
             
 
@@ -129,76 +169,17 @@ class TranslationOperation:
 
         if self.collection.operation_mode == 'preprocess':
             if next_version != None:
-                self.collection.collection_processed.update_many({'_evolution_list':previous_version['_id']}, {'$push' : {'_evolution_list':i.inserted_id}})
+                self.collection.collection_processed.update_many({'_evolution_list':previous_version['_id']}, {'$push' : {'_evolution_list':i.inserted_id}})               
 
-            versions = self.collection.collection_versions.find({'$and': [{'next_operation.field' : fieldName},
-                                                        {'next_operation.type' : 'translation'}                                                      
-                                                        ]}).sort('next_version_valid_from',ASCENDING)
-
-            for version_change in versions:
-                res = self.collection.collection_processed.update_many({'$and':[{'_min_version_number':{'$gte' : version_change['next_version']}},
-                                                                    {'_valid_from' : {'$lte': version_change['next_version_valid_from']}},
-                                                                    {version_change['next_operation']['field'] : version_change['next_operation']['from']},                                                                 
-                                                                    ]
-                                                            }, 
-                                                            {
-                                                                '$set': {version_change['next_operation']['field']: version_change['next_operation']['to'], '_evoluted' : True},
-                                                                '$push' : {'_evolution_list':version_change['_id']}
-                                                            })
-                
-                ##Lets just append to evolution list to the original records altered
-                res = self.collection.collection_processed.update_many({'$and':[{'_max_version_number':{'$lte' : version_change['next_version']}},
-                                                                    {'_valid_from' : {'$lte': version_change['next_version_valid_from']}},
-                                                                    {version_change['next_operation']['field'] : version_change['next_operation']['from']},                                                                 
-                                                                    ]
-                                                            }, 
-                                                            {                                                            
-                                                                '$push' : {'_evolution_list':version_change['_id']}
-                                                            })
-
-            versions = self.collection.collection_versions.find({'$and': [{'previous_operation.field' : fieldName},
-                                                        {'previous_operation.type' : 'translation'}                                                      
-                                                        ]}).sort('previous_version_valid_from',DESCENDING)
-
-            for version_change in versions:       
-                previous_versions = self.collection.collection_versions.find({'version_number':version_change['previous_version']})
-                previous_version_rec = previous_versions[0]
-
-
-
-                res = self.collection.collection_processed.update_many({'$and':[{'_max_version_number':{'$lte' : version_change['previous_version']}},
-                                                                    {'_valid_from' : {'$gte': version_change['version_valid_from']}},
-                                                                    {version_change['previous_operation']['field'] : version_change['previous_operation']['from']},                                                                 
-                                                                    ]
-                                                            }, 
-                                                            {
-                                                                '$set': {version_change['previous_operation']['field']: version_change['previous_operation']['to'], '_evoluted' : True},
-                                                                '$push' : {'_evolution_list':previous_version_rec['_id']}
-                                                            })   
-
-                ##Lets just append to evolution list to the original records altered
-                res = self.collection.collection_processed.update_many({'$and':[{'_min_version_number':{'$gte' : version_change['previous_version']}},
-                                                                    {'_valid_from' : {'$gte': version_change['version_valid_from']}},
-                                                                    {version_change['previous_operation']['field'] : version_change['previous_operation']['from']},                                                                 
-                                                                    ]
-                                                            }, 
-                                                            {                                                            
-                                                                '$push' : {'_evolution_list':previous_version_rec['_id']}
-                                                            })                                                        
             
 
-            ##Pre-existing records have already been processed in the new version. We can update this in the original records collection. 
+            self.collection.check_if_operation_affected_forward(fieldName, newValue, new_version_number)
+            self.collection.check_if_operation_affected_backward(fieldName, newValue, new_version_number)
 
-            self.collection.collection.update_many({'$and': [{'_last_processed_version': previous_version['version_number']}
-                                                ]                                     
-                                        },
-                                        {'$set' :{'_last_processed_version' : new_version_number}})
+            self.collection.check_if_operation_affected_forward(fieldName, oldValue, new_version_number)
+            self.collection.check_if_operation_affected_backward(fieldName, oldValue, new_version_number)
+            
 
-            if(next_version != None):
-                self.collection.collection.update_many({'$and': [{'_first_processed_version': next_version['version_number']}
-                                                    ]                                     
-                                            },
-                                            {'$set':{'_first_processed_version' : new_version_number}})
 
     def check_if_affected(self, Document):
         versions_df = self.collection.versions_df
@@ -297,5 +278,83 @@ class TranslationOperation:
         d = DocumentOperationDataFrame.copy()
         d[field] = d['previous_operation.to']
         return d
+
+    def reapply_operation_forward(self, version_change):        
+            
+        # A previous evolution has been hit by this new evolution. We need to reprocess it.
+
+        temp_collection_name = str(uuid.uuid4())
+
+        #Copying all records affected by the translation to a temporary collection
+        res = self.collection.collection_processed.aggregate([{ '$match': {'$and': [
+                                                                        {'_min_version_number' : {'$lte' : version_change['next_version']}},
+                                                                        {'_max_version_number' : {'$gt' : version_change['next_version']}},
+                                                                        {'$or' : [{version_change['next_operation']['field'] : version_change['next_operation']['from']}                                                                                   
+                                                                                ]
+                                                                        } 
+                                                                    ]
+                                                        } 
+                                            }, 
+                                            {'$unset': '_id'},
+                                            { '$out' : temp_collection_name } ])
+
+        ##part 1 of split - old registers are cut until last version before translation          
+        res = self.collection.collection_processed.update_many({'$and': [
+                                                                {'_min_version_number' : {'$lte' : version_change['next_version']}},
+                                                                {'_max_version_number' : {'$gt' : version_change['next_version']}},                                                                    
+                                                                {'$or' : [{version_change['next_operation']['field'] : version_change['next_operation']['from']}                                                                            
+                                                                        ]
+                                                                } 
+                                                    ]
+                                                    },
+                                                    {'$set' : {'_max_version_number' : version_change['next_version']}}
+                                                )
+        
+        ##part 2 of split - inserting registers starting from new version. Therefore, in the end of the process, records
+        #have been splitted in two parts. 
+        res = self.collection.db[temp_collection_name].update_many({},
+                                            {'$set' : {'_min_version_number' : version_change['next_version'],version_change['next_operation']['field'] : version_change['next_operation']['to']}}
+                                            )
+
+        res = self.collection.db[temp_collection_name].aggregate([{'$match' : {}}, {'$merge': {'into' : self.collection.collection_processed.name, 'whenMatched' : 'fail'}}])          
+        self.collection.db[temp_collection_name].drop()
+
+        ##Recheck
+        self.collection.check_if_operation_affected_forward(version_change['next_operation']['field'], version_change['next_operation']['to'],version_change['next_version'])#Recheck if affected any other evolution
+
+    def reapply_operation_backward(self, version_change):
+        temporary_collection = str(uuid.uuid4())            
+        #Copying all records affected by the translation to a temporary collection
+        res = self.collection.collection_processed.aggregate([{ '$match': {'$and': [
+                                                                        {'_min_version_number' : {'$lte' : version_change['previous_version']}},
+                                                                        {'_max_version_number' : {'$gt' : version_change['previous_version']}},
+                                                                        {version_change['previous_operation']['field'] : version_change['previous_operation']['from']}
+                                                                        
+                                                                    ]
+                                                        } 
+                                            }, 
+                                            {'$unset': '_id'},
+                                            { '$out' : temporary_collection } ])
+
+        ##part 1 of split - old registers are cut until last version before translation          
+        res = self.collection.collection_processed.update_many({'$and': [
+                                                                {'_min_version_number' : {'$lte' : version_change['previous_version']}},
+                                                                {'_max_version_number' : {'$gt' : version_change['previous_version']}},                                                                    
+                                                                {version_change['previous_operation']['field'] : version_change['previous_operation']['from']}
+                                                    ]
+                                                    },
+                                                    {'$set' : {'_min_version_number' : version_change['version_number']}}
+                                                )
+        
+        ##part 2 of split - inserting registers starting from new version. Therefore, in the end of the process, records
+        #have been splitted in two parts. 
+        res = self.collection.db[temporary_collection].update_many({},
+                                            {'$set' : {'_max_version_number' : version_change['version_number'], version_change['previous_operation']['field'] : version_change['previous_operation']['to']}}
+                                            )
+
+        res = self.collection.db[temporary_collection].aggregate([{'$match' : {}}, {'$merge': {'into' : self.collection.collection_processed.name, 'whenMatched' : 'fail'}}])          
+        self.collection.db[temporary_collection].drop()   
+        
+        self.collection.check_if_operation_affected_backward(version_change['previous_operation']['field'], version_change['previous_operation']['to'],version_change['previous_version'])#Recheck if affected any other evolution
     
         

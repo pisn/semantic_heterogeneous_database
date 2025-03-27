@@ -1,4 +1,5 @@
 import time
+import uuid
 import pandas as pd
 import numpy as np
 from pymongo import MongoClient, ASCENDING,DESCENDING
@@ -985,7 +986,8 @@ class Collection:
         operation.execute_operation(validFromDate=validFrom, args=args)
 
     def execute_many_operations_by_csv(self, filePath, operationTypeColumn, validFromColumn):
-        operations = pd.read_csv(filePath, sep=';')      
+        operations = pd.read_csv(filePath, sep=';') 
+        operations = operations.sort_values(by=validFromColumn)
 
         i = 0
 
@@ -1003,6 +1005,40 @@ class Collection:
             i = i + 1
             print('Executing ungrouping ' + str(i))
             self.execute_operation('ungrouping', datetime.strptime(group[0][1], '%Y-%m-%d'), {'fieldName':group[0][2], 'oldValue':group[0][0], 'newValues':list(group[1]['to'].values)})            
+
+
+    def check_if_operation_affected_forward(self, fieldName, newValue, version_number):
+        versions = self.collection_versions.find({'$and': [{'next_operation.field' : fieldName},                                                                      
+                                                                      {'next_operation.from' : newValue}, #We are checking if the informed evolution here affected any pre-existing evolutions so as to reprocess them. Gonna do it in both directions
+                                                                      {'next_version': {'$gt': version_number}}
+                                                        ]}).sort('next_version_valid_from',ASCENDING)
+
+        for version_change in versions:           
+            
+            # A previous evolution has been hit by this new evolution. We need to reprocess it.
+            semantic_evolution = self.semantic_operations[version_change['next_operation']['type']]
+
+            if semantic_evolution.forward_processable:
+                semantic_evolution.reapply_operation_forward(version_change)            
+
+            ##Recheck
+            self.check_if_operation_affected_forward(version_change['next_operation']['field'], version_change['next_operation']['to'],version_change['next_version'])#Recheck if affected any other evolution
+
+    def check_if_operation_affected_backward(self, fieldName, newValue,version_number):
+        versions = self.collection.collection_versions.find({'$and': [{'previous_operation.field' : fieldName},                                                    
+                                                    {'previous_operation.from' : newValue}, #We are checking if the informed evolution here affected any pre-existing evolutions so as to reprocess them. 
+                                                    {'previous_version_number': {'$lt': version_number}}
+                                                    ]}).sort('previous_version_valid_from',DESCENDING)
+
+        for version_change in versions:         
+
+            # A previous evolution has been hit by this new evolution. We need to reprocess it.
+            semantic_evolution = self.semantic_operations[version_change['previous_operation']['type']]
+            if semantic_evolution.backward_processable:
+                semantic_evolution.reapply_operation_backward(version_change)
+            
+            self.check_if_operation_affected_backward(version_change['previous_operation']['field'], version_change['previous_operation']['to'],version_change['previous_version'])#Recheck if affected any other evolution
+    
 
 
     def pretty_print(self, recordsCursor):
