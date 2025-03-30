@@ -76,6 +76,8 @@ class Comparator:
 
     def __insert_first(self):            
         start = time.time()
+
+        self.collection.create_index([('cid',1),('municipio',1)])
         
         self.collection.insert_many_by_csv(self.source_folder, self.date_columns)        
         self.collection.execute_many_operations_by_csv(self.operations_file, 'operation_type', 'valid_from')        
@@ -93,8 +95,10 @@ class Comparator:
 
     def __operations_first(self):
         start = time.time()
-        self.collection.execute_many_operations_by_csv(self.operations_file, 'operation_type', 'valid_from')                
+        
+        self.collection.create_index([('cid',1),('municipio',1)])
 
+        self.collection.execute_many_operations_by_csv(self.operations_file, 'operation_type', 'valid_from')
         self.collection.insert_many_by_csv(self.source_folder, self.date_columns)
         
         end = time.time()    
@@ -149,7 +153,7 @@ operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_data
 i = 0
 
 with open('experiment_log.txt','w') as log_file:    
-    for method in ['insertion_first']:
+    for method in ['insertion_first','operations_first']:
         for execution_try in range(10):                                                                                  
             output_file = f'results_operations_{method}_{str(execution_try)}.txt'
 

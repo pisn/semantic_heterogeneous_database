@@ -517,30 +517,93 @@ ggsave("plot_execution_time_scenarios_approaches_indexed_500_2F.png", plot_execu
 ggsave("plot_execution_time_scenarios_approaches_all_200_2F.png", plot_execution_time_scenarios_all_bar(results_preprocess_twofields_noindex,results_rewrite_twofields_noindex,results_preprocess_twofields_indexed, results_rewrite_twofields_indexed, 0.3, 500, ''), width = 11, height = 8)
 
 
-### Table
-
-# confidence_interval = function(x) {
-#   count = as.numeric(x['count'])
-#   dev = as.numeric(x['sd'])
+process_results_operations <- function(folder) {
+  results <- list.files(path=folder, pattern="^result.*\\.txt$", full.names=TRUE) %>%
+    lapply(function(file) {
+      lines <- readLines(file)
+      data.frame(
+        test_type = sapply(lines, function(line) strsplit(line, ";")[[1]][1]),
+        operations_method = sapply(lines, function(line) strsplit(line, ";")[[1]][2]),
+        time_taken = as.numeric(sapply(lines, function(line) strsplit(line, ";")[[1]][3])),
+        stringsAsFactors = FALSE
+      )
+    }) %>%
+    do.call(rbind, .)
   
-#   error = qt(0.95, df=count-1)*dev/sqrt(count)
-#   return (error)
-# }
+  results_grouped <- results %>%
+    group_by(operations_method) %>%
+    summarise(
+      mean_time_taken = mean(as.numeric(time_taken)),
+      sd_time_taken = sd(as.numeric(time_taken)),
+      count = n()
+    ) %>%
+    mutate(
+      error = qt(0.975, df = count - 1) * sd_time_taken / sqrt(count),
+      lower_bound = mean_time_taken - error,
+      upper_bound = mean_time_taken + error
+    )
+  
+  return (results_grouped)
+}
 
-# read_only
-# baseline = results[results$update_percent == 0,'operations_baseline']
-# avg = mean(baseline$operations_baseline)
-# dev = sd(baseline$operations_baseline)
-# n = length(baseline$operations_baseline)
-# error = qt(0.95, df=n-1)*dev/sqrt(n)
+results_operations_indexed <- process_results_operations('/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_operations_methods/results_indexed/')
+results_operations_not_indexed <- process_results_operations('/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_operations_methods/results_noindex/')
+
+plot_operations_method_performance <- function(results_operations) {
+  ggplot(results_operations, aes(x = operations_method, y = mean_time_taken, fill = operations_method)) +
+    geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
+    geom_errorbar(aes(ymin = lower_bound, ymax = upper_bound), width = 0.2, position = position_dodge(width = 0.8), size = 1) +
+    xlab('') +
+    ylab('Mean Execution Time (s)') +
+    ggtitle('') +
+    scale_fill_manual('', breaks = c('insertion_first', 'operations_first'), 
+                      labels = c('Insertion First', 'Operations First'), 
+                      values = c('insertion_first' = 'blue', 'operations_first' = 'red')) +
+    theme(panel.background = element_rect(fill = 'white', colour = 'black'),
+          legend.position = "bottom",
+          legend.justification = "center",
+          legend.margin = margin(6, 6, 6, 6),
+          legend.text = element_text(size = 12),
+          axis.text.x = element_blank(), # Remove category ticks
+          axis.ticks.x = element_blank(), # Remove tick marks
+          text = element_text(size = 14)) +
+    guides(fill = guide_legend(nrow = 1, byrow = TRUE)) 
+  
+}
+
+plot_operations_method_performance_all_bar <- function(results_noindex, results_indexed, title) {
+  results_indexed[results_indexed$operations_method=='operations_first',]$operations_method = 'Operations First (Indexed)'
+  results_indexed[results_indexed$operations_method=='insertion_first',]$operations_method = 'Insertion First (Indexed)'
+  results_noindex[results_noindex$operations_method=='operations_first',]$operations_method = 'Operations First (No Index)'
+  results_noindex[results_noindex$operations_method=='insertion_first',]$operations_method = 'Insertion First (No Index)'
+  
+  results = rbind(results_noindex,results_indexed)
+  
+  ggplot() + 
+    geom_bar(data=results, aes(x = operations_method, y = mean_time_taken, fill=operations_method), stat="identity", position=position_dodge(width=0.8), width = 0.7) + 
+    geom_errorbar(data=results, aes(x = operations_method, ymin = lower_bound, ymax = upper_bound, group = operations_method), 
+                  width = 0.2, position=position_dodge(width=0.8), size=1) +
+    
+    xlab('') + 
+    ylab('Execution Time (s)') +
+    ggtitle(title) +
+    scale_fill_manual('', breaks=c('Operations First (Indexed)','Operations First (No Index)','Insertion First (Indexed)','Insertion First (No Index)'), 
+                      values=c('lightblue','blue','pink','red')) + 
+    theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
+          legend.position = "bottom",
+          legend.justification = "center",
+          legend.margin = margin(6, 6, 6, 6),
+          legend.text = element_text(size=20),
+          legend.title = element_text(size=20),
+          axis.text.x = element_blank(), # Remove category ticks
+          axis.ticks.x = element_blank(), # Remove tick marks
+          text=element_text(size=20)) +
+    guides(fill=guide_legend(nrow=2, byrow=TRUE))
+}
 
 
-# write_only
-# summary(results[results$update_percent == 1,'operations_baseline'])
+# Call the function and save the plot
+plot_operations_method_performance(results_operations)
+ggsave("operations_method_performance.png", plot_operations_method_performance_all_bar(results_operations_not_indexed,results_operations_indexed,''), width = 10, height = 8)
 
-# baseline = results[results$update_percent == 1,'operations_baseline']
-# avg = mean(baseline$operations_baseline)
-# dev = sd(baseline$operations_baseline)
-# n = length(baseline$operations_baseline)
-# error = qt(0.95, df=n-1)*dev/sqrt(n)
-# error
+plot_operations_method_performance_all_bar(results_operations_not_indexed,results_operations_indexed,'')

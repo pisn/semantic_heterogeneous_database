@@ -143,7 +143,7 @@ class Collection:
             document = check_list.pop()           
 
             for operationType in self.semantic_operations:
-                if operationType in ['grouping','translation','ungrouping']: ##somente para teste, depois eu implemento no desagrupamento também                    
+                if operationType in ['grouping','translation','ungrouping']:
                     affected_versions = self.semantic_operations[operationType].check_if_affected(document)                                       
                     
                     if affected_versions != None:                                           
