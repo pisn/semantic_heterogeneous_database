@@ -53,9 +53,7 @@ class GroupingOperation:
         else:
             next_version = {'version_number': float('inf')}
             self.collection.current_version = self.collection.current_version + 1000000 #this is the newest version now
-            new_version_number = self.collection.current_version
-
-        print(f'New version number: {new_version_number}')
+            new_version_number = self.collection.current_version        
             
         
         if self.collection.operation_mode == 'preprocess': 
@@ -121,19 +119,15 @@ class GroupingOperation:
             "to":newValue
         }
 
-        res = self.collection.collection_versions.update_one({'version_number': previous_version['version_number']}, {'$set' : {'next_operation': next_operation, 'next_version':new_version_number, 'next_version_valid_from' : validFromDate, 'current_version':0}})
+        res = self.collection.collection_versions.update_one({'version_number': previous_version['version_number']}, {'$set' : {'next_operation': next_operation, 'next_version':new_version_number, 'next_version_valid_from' : validFromDate, 'current_version':0}})        
         
-        if(res.matched_count != 1):
-            print("Previous version not matched")
 
         if(next_version != None and 'version_valid_from' in next_version):
             new_version['next_version'] = next_version['version_number']
             new_version['next_version_valid_from'] = next_version['version_valid_from']
             new_version['next_operation'] = previous_version['next_operation']            
 
-            res = self.collection.collection_versions.update_one({'version_number': next_version['version_number']},{'$set':{'previous_version':new_version_number}})        
-            if(res.matched_count != 1):
-                print("Next version not matched")                
+            res = self.collection.collection_versions.update_one({'version_number': next_version['version_number']},{'$set':{'previous_version':new_version_number}})                    
 
         i = self.collection.collection_versions.insert_one(new_version)
 

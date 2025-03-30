@@ -603,7 +603,6 @@ plot_operations_method_performance_all_bar <- function(results_noindex, results_
 
 
 # Call the function and save the plot
-plot_operations_method_performance(results_operations)
 ggsave("operations_method_performance.png", plot_operations_method_performance_all_bar(results_operations_not_indexed,results_operations_indexed,''), width = 10, height = 8)
 
-plot_operations_method_performance_all_bar(results_operations_not_indexed,results_operations_indexed,'')
+

@@ -1,64 +1,15 @@
 import argparse
 import os
-import shutil
-import uuid
 import time
-import json
-import random
-import math
 import pandas as pd
 from datetime import datetime
 from pymongo import MongoClient
-from database_generator import DatabaseGenerator
 from semantic_heterogeneous_database import BasicCollection
 import re
-pd.options.mode.chained_assignment = None  # default='warn'
-
-#python simulations_realcases.py --method='insertion_first' --sourcefolder='/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/source/' --datecolumn='ano' --destination='teste.csv' --dbname='experimento_datasus' --collectionname='db_experimento_datasus' --mode='preprocess' --operations='/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
-
-# parser=argparse.ArgumentParser()
-# parser.add_argument("--method")
-# parser.add_argument("--sourcefolder")
-# parser.add_argument("--datecolumn")
-# parser.add_argument("--destination")
-# parser.add_argument("--dbname")
-# parser.add_argument("--collectionname")
-# parser.add_argument("--mode")
-# parser.add_argument("--operations") 
-
-# args=parser.parse_args()
-
-# operation_mode = args.mode
-# method = args.method
-# dbname = args.dbname
-# collectionname = args.collectionname
-# source_folder = args.sourcefolder
-# date_columns = args.datecolumn
-# csv_destination = args.destination
-# operations_file = args.operations
-
-#print(f'Test Arguments:{str(args)}')
-
-#operation_mode = 'rewrite'
-# operation_mode = 'preprocess'
-# method = 'insertion_first'
-# dbname = 'experimento_datasus_2'
-# collectionname = 'db_experimento_datasus'
-# source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/source/'
-# date_columns = 'ano'
-# csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/results/'
-# operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus/operations_cid9_cid10.csv'
-# number_of_operations = 100
-# percent_of_heterogeneous_queries = 0.3
-# percent_of_insertions = 0.3
-
-# if method != 'insertion_first' and method != 'operations_first':
-#     raise BaseException('Method not implemented')
-
-# host = 'localhost'
+pd.options.mode.chained_assignment = None 
 
 class Comparator:
-    def __init__(self, host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, output_file):
+    def __init__(self, host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, output_file, indexes=None):
         self.operation_mode = operation_mode
         self.method = method
         self.dbname = dbname
@@ -70,15 +21,19 @@ class Comparator:
         self.host = host
         self.collection = BasicCollection(self.dbname, self.collectionname, self.host, self.operation_mode)
         self.output_file = output_file
+        self.indexes = indexes or []  # Default to an empty list if None
 
         os.makedirs(csv_destination, exist_ok=True)
-        
+
+    def __create_indexes(self):
+        if self.indexes:
+            for index in self.indexes:
+                self.collection.create_index(index)
 
     def __insert_first(self):            
         start = time.time()
 
-        self.collection.create_index([('cid',1),('municipio',1)])
-        
+        self.__create_indexes()
         self.collection.insert_many_by_csv(self.source_folder, self.date_columns)        
         self.collection.execute_many_operations_by_csv(self.operations_file, 'operation_type', 'valid_from')        
         
@@ -96,8 +51,7 @@ class Comparator:
     def __operations_first(self):
         start = time.time()
         
-        self.collection.create_index([('cid',1),('municipio',1)])
-
+        self.__create_indexes()
         self.collection.execute_many_operations_by_csv(self.operations_file, 'operation_type', 'valid_from')
         self.collection.insert_many_by_csv(self.source_folder, self.date_columns)
         
@@ -136,40 +90,71 @@ class Comparator:
         client.drop_database(self.dbname)
         print('Database Dropped')    
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run database operations experiments.")
+    parser.add_argument("--host", type=str, default="localhost", help="MongoDB host")
+    parser.add_argument("--dbname", type=str, required=True, help="Database name")
+    parser.add_argument("--collectionname", type=str, required=True, help="Collection name")
+    parser.add_argument("--sourcefolder", type=str, required=True, help="Source folder for CSV files")
+    parser.add_argument("--datecolumn", type=str, required=True, help="Date column in the source CSV")
+    parser.add_argument("--csvdestination", type=str, required=True, help="Destination folder for results")
+    parser.add_argument("--operationsfile", type=str, required=True, help="CSV file with operations")
+    parser.add_argument("--trials", type=int, default=10, help="Number of trials to execute")
+    parser.add_argument("--indexes", type=str, nargs="*", default=None, help="List of indexes to create")
+    parser.add_argument("--methods", type=str, nargs="*", default=["insertion_first", "operations_first"], 
+                        choices=["insertion_first", "operations_first"], 
+                        help="List of methods to execute. Options: 'insertion_first', 'operations_first'")
+    
+    args = parser.parse_args()
 
+    host = args.host
+    dbname = args.dbname
+    collectionname = args.collectionname
+    source_folder = args.sourcefolder
+    date_columns = args.datecolumn
+    csv_destination = args.csvdestination
+    operations_file = args.operationsfile
+    trials = args.trials
+    indexes = args.indexes
+    methods = args.methods
 
-host = 'localhost'
-# method = 'operations_first'
-dbname = 'experimento_datasus'
-collectionname = 'db_experimento_datasus'
-source_folder = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_operations_methods/source/'
-date_columns = 'RefDate'
-csv_destination = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_operations_methods/results/'
-operations_file = '/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_operations_methods/operations_cid9_cid10.csv'
+    os.makedirs(csv_destination, exist_ok=True)
 
+    with open(f"{csv_destination}/experiment_log.txt", "w") as log_file:
+        for method in methods:
+            for execution_try in range(trials):
+                output_file = f"results_operations_{method}_{str(execution_try)}.txt"
 
-
-
-i = 0
-
-with open('experiment_log.txt','w') as log_file:    
-    for method in ['insertion_first','operations_first']:
-        for execution_try in range(10):                                                                                  
-            output_file = f'results_operations_{method}_{str(execution_try)}.txt'
-
-            try:
-                log_file.write('Executing ' + output_file)
-                c = Comparator(host, 'preprocess', method, dbname, collectionname, source_folder, date_columns, csv_destination,operations_file, output_file)                                           
-                log_file.write('Inserting Data\n')
-                log_file.flush()
-                c.insert()                          
-                log_file.write(f'Finished {output_file}\n')
-                log_file.flush()
-                time.sleep(10)
-            except BaseException:
-                log_file.write('Error executing')
-                log_file.flush()                     
-            c.drop_database()         
-                                    
-# # if __name__ == "__main__":
-# #     run_experiment()
+                try:
+                    print(f"Starting execution for {output_file}...")
+                    log_file.write(f"Executing {output_file}\n")
+                    log_file.flush()
+                    c = Comparator(
+                        host,
+                        "preprocess",
+                        method,
+                        dbname,
+                        collectionname,
+                        source_folder,
+                        date_columns,
+                        csv_destination,
+                        operations_file,
+                        output_file,
+                        indexes=indexes
+                    )
+                    print("Inserting data...")
+                    log_file.write("Inserting Data\n")
+                    log_file.flush()
+                    c.insert()
+                    print(f"Finished execution for {output_file}.")
+                    log_file.write(f"Finished {output_file}\n")
+                    log_file.flush()
+                    time.sleep(10)
+                except BaseException as e:
+                    print(f"Error during execution for {output_file}: {str(e)}")
+                    log_file.write(f"Error executing {output_file}: {str(e)}\n")
+                    log_file.flush()
+                finally:
+                    print("Dropping database...")
+                    c.drop_database()
+                    print("Database dropped.")

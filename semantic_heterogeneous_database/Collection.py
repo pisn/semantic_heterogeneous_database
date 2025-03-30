@@ -254,15 +254,12 @@ class Collection:
         i = 0
 
         while len(recheck_group) > 0:
-            print('Exec ' + str(i))
-
             if i == 300:
                 recheck_group.to_csv('recheck_300.csv', index=False)
                 raise BaseException('Too many iterations. Checkpoint saved in recheck_300.csv')
 
             i+=1
-
-            print('Recheck:' + str(len(recheck_group)))
+            
             g = recheck_group[cols]
             recheck_group = pd.DataFrame()
 
@@ -270,11 +267,9 @@ class Collection:
                 affected_versions = self.semantic_operations[operationType].check_if_many_affected(g)
 
                 j = 0
-                if affected_versions != None:                                           
-                    print('Internal exec '+ str(j))
+                if affected_versions != None:                                                               
                     j+=1
-
-                    print('Affected versions: ' + str(len(affected_versions)))
+                    
                     for idx in range(len(affected_versions)):
                         v = affected_versions[idx]
 
@@ -699,14 +694,7 @@ class Collection:
                 "$replaceRoot": { "newRoot": "$processedFields" }
             }
         ]
-
-        # for i in range(len(pipeline)):
-        #     intermediate_results = self.collection.aggregate(pipeline[:i+1])
-        #     print(f'Results after stage {i+1}:')
-        #     for result in intermediate_results:
-        #         print(result)
         
-        # Execute the aggregation pipeline
         results = self.collection.aggregate(pipeline)
 
         return results   
@@ -921,16 +909,9 @@ class Collection:
 
         """
 
-        if self.operation_mode == 'preprocess':
-            #start = time.time()
+        if self.operation_mode == 'preprocess':            
             finalQuery = self.__process_query(QueryString)                          
-            #end = time.time()
-            #print('Query processing:' + str(end-start))       
-
-            #start = time.time()
             r = self.__query_specific(finalQuery)     
-            #end = time.time()
-            #print('Query results:' + str(end-start))
         else:
             r = self.__rewrite_and_query(QueryString)
 
