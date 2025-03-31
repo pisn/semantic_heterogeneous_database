@@ -16,7 +16,7 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 
 class Comparator:
-    def __init__(self, host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, output_file, indexes):
+    def __init__(self, host, operation_mode, method, dbname, collectionname, source_folder, date_columns, csv_destination, operations_file, number_of_operations, percent_of_heterogeneous_queries, percent_of_insertions, execution_try, output_file, indexes, query_source):
         self.operation_mode = operation_mode
         self.method = method
         self.dbname = dbname
@@ -33,8 +33,10 @@ class Comparator:
         self.collection = BasicCollection(self.dbname, self.collectionname, self.host, self.operation_mode)
         self.output_file = output_file
         self.indexes = indexes or []  # Default to an empty list if None
+        self.query_source = query_source
 
         os.makedirs(csv_destination, exist_ok=True)
+        os.makedirs(query_source, exist_ok=True)
 
     def __create_indexes(self):
         if self.indexes:
@@ -137,8 +139,7 @@ class Comparator:
 
     
     def generate_queries_list(self):
-        output_file = f'queries_{str(self.percent_of_heterogeneous_queries)}_{str(self.percent_of_insertions)}_{str(self.number_of_operations)}.txt'
-        queries_file = self.csv_destination + output_file
+        queries_file = os.path.join(self.query_source, f'queries_{str(self.percent_of_heterogeneous_queries)}_{str(self.percent_of_insertions)}_{str(self.number_of_operations)}.txt')        
 
         if os.path.exists(queries_file):            
             return
@@ -385,7 +386,8 @@ if __name__ == "__main__":
     parser.add_argument("--method", type=str, default="insertion_first", 
                         choices=["insertion_first", "operations_first"], 
                         help="Method to execute. Options: 'insertion_first', 'operations_first'")
-    parser.add_argument("--indexes", type=str, nargs="*", default=None, help="List of indexes to create")
+    parser.add_argument("--indexes", type=str, nargs="*", default=None, help="List of indexes to create")    
+    parser.add_argument("--querysource", type=str, required=True, help="Path to read and write the queries from")
     
     
     args = parser.parse_args()
@@ -401,60 +403,61 @@ if __name__ == "__main__":
     indexes = args.indexes
     method = args.methods
     number_of_operations_a = args.numberofoperations
-
-    os.makedirs(csv_destination, exist_ok=True)
+    operation_mode = args.approach
+    query_source = args.querysource
+    
 
     rebuild = True
 
-    with open('experiment_log.txt','w') as log_file:
-        for operation_mode in ['rewrite']:
-            for execution_try in range(trials):
-                for number_of_operations in range(number_of_operations_a[0], number_of_operations_a[1] + 1, number_of_operations_a[2]):
-                    for percent_of_heterogeneous_queries in [0.15,0.3]:
-                        for percent_of_insertions in [0,0.05,0.5,0.95,1]:
+    with open(f"{csv_destination}/experiment_log.txt", "w") as log_file:
+        for execution_try in range(trials):
+            for number_of_operations in range(number_of_operations_a[0], number_of_operations_a[1] + 1, number_of_operations_a[2]):
+                for percent_of_heterogeneous_queries in [0.15,0.3]:
+                    for percent_of_insertions in [0,0.05,0.5,0.95,1]:
 
-                            output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'                            
+                        output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'                            
 
-                            try:
-                                print(f"Starting execution for {output_file}...")
-                                log_file.write('Executing ' + output_file)
-                                c = Comparator(
-                                    host, 
-                                    operation_mode, 
-                                    method, 
-                                    dbname, 
-                                    collectionname, 
-                                    source_folder, 
-                                    date_columns, 
-                                    csv_destination,operations_file,
-                                    number_of_operations, 
-                                    percent_of_heterogeneous_queries, 
-                                    percent_of_insertions, 
-                                    execution_try,                                      
-                                    output_file,
-                                    indexes=indexes
-                                )
+                        try:
+                            print(f"Starting execution for {output_file}...")
+                            log_file.write('Executing ' + output_file)
+                            c = Comparator(
+                                host, 
+                                operation_mode, 
+                                method, 
+                                dbname, 
+                                collectionname, 
+                                source_folder, 
+                                date_columns, 
+                                csv_destination,operations_file,
+                                number_of_operations, 
+                                percent_of_heterogeneous_queries, 
+                                percent_of_insertions, 
+                                execution_try,                                      
+                                output_file,
+                                indexes,
+                                query_source
+                            )
 
-                                if rebuild:                                
-                                    log_file.write('Inserting Data\n') 
-                                    log_file.flush()
-                                    c.insert()
-                                    rebuild = False                                                                                                   
-                            
-                                log_file.write('Generating Queries\n')
+                            if rebuild:                                
+                                log_file.write('Inserting Data\n') 
                                 log_file.flush()
-                                #c.generate_queries_list() ## in the rewrite, we gonna use the same queries generated in the preprocess
-                                c.generate_queries_list_fields()
+                                c.insert()
+                                rebuild = False                                                                                                   
+                        
+                            log_file.write('Generating Queries\n')
+                            log_file.flush()
+                            c.generate_queries_list()
+                            c.generate_queries_list_fields()
 
-                                log_file.write('Executing Queries\n')
-                                log_file.flush()
-                                c.execute_queries()                            
-                                log_file.write(f'Finished {output_file}\n')
-                                log_file.flush()
-                                time.sleep(10)
-                            except BaseException:
-                                log_file.write('Error executing')
-                                log_file.flush()                     
+                            log_file.write('Executing Queries\n')
+                            log_file.flush()
+                            c.execute_queries()                            
+                            log_file.write(f'Finished {output_file}\n')
+                            log_file.flush()
+                            time.sleep(10)
+                        except BaseException:
+                            log_file.write('Error executing')
+                            log_file.flush()                     
 
-            rebuild = True
-            c.drop_database()
+        rebuild = True
+        c.drop_database()
