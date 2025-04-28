@@ -157,8 +157,16 @@ class UngroupingOperation:
 
             if len(versions_df_p) > 0:
                 if {'previous_operation.type','previous_operation.field', 'previous_operation.from'}.issubset(versions_df.columns):  
-                    versions_df_p['field_value'] = versions_df_p.apply(lambda row: Document.get(row['previous_operation.field'],None), axis=1)
-                    versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] == versions_df_p['previous_operation.from']]
+                    versions_df_p['field_value'] = versions_df_p.apply(lambda row: Document.get(row['previous_operation.field'], None), axis=1)
+                    versions_df_p = versions_df_p.loc[
+                        versions_df_p.apply(
+                            lambda row: row['field_value'] in row['previous_operation.from']
+                            if isinstance(row['previous_operation.from'], list)
+                            else row['field_value'] == row['previous_operation.from'],
+                            axis=1
+                        )
+                    ]
+                    
                     versions_df_p.sort_values('version_number', inplace=True)
 
                     if len(versions_df_p) > 0:                        

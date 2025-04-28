@@ -162,7 +162,12 @@ class GroupingOperation:
             if len(versions_df_p) > 0:
                 if {'next_operation.type','next_operation.field', 'next_operation.from'}.issubset(versions_df.columns):  
                     versions_df_p['field_value'] = versions_df_p.apply(lambda row: Document.get(row['next_operation.field'], None), axis=1)
-                    versions_df_p = versions_df_p.loc[ versions_df_p['field_value'] == versions_df_p['next_operation.from']]
+                    versions_df_p = versions_df_p.loc[versions_df_p.apply(
+                        lambda row: row['field_value'] in row['next_operation.from'] 
+                        if isinstance(row['next_operation.from'], list) 
+                        else row['field_value'] == row['next_operation.from'], 
+                        axis=1
+                    )]
                     
                     if len(versions_df_p) > 0:
                         for ind,v in versions_df_p.iterrows():
@@ -202,7 +207,7 @@ class GroupingOperation:
                     versions_g = versions_df_p.loc[versions_df_p['next_operation.field'] == field]
                     merged_records = pd.merge(DocumentsDataFrame, versions_g, how='left', left_on=field, right_on='next_operation.from')
 
-                    merged_records['match'] = (merged_records['next_operation.field'].notna()) & (merged_records['next_version_valid_from'] < merged_records['_valid_from']) & (merged_records['next_version'] <= merged_records['_max_version_number']) & (merged_records['next_version'] >= merged_records['_min_version_number'])
+                    merged_records['match'] = (merged_records['next_operation.field'].notna()) & (merged_records['next_version_valid_from'] > merged_records['_valid_from']) & (merged_records['next_version'] < merged_records['_max_version_number']) & (merged_records['next_version'] >= merged_records['_min_version_number'])
                     matched = merged_records.loc[merged_records['match']]                    
                     
                     return_obj.append((field, matched, 'forward'))           

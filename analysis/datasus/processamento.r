@@ -7,34 +7,99 @@ library(scales)
 ###### FILES PROCESSING #####################################################
 
 process_results <- function(folder) {
-  results <- list.files(path=folder, pattern="^result.*\\.txt$", full.names=TRUE) %>%
-  lapply(function(file) {
-    lines <- readLines(file)
-    test_start_line <- lines[grep("^Test Start", lines)]
-    last_line <- strsplit(lines[length(lines)], ";")[[1]]
-    c(strsplit(test_start_line, ";")[[1]], last_line)
-  }) %>%
-  do.call(rbind, .) %>%
-  as.data.frame(stringsAsFactors = FALSE)
-
-
-colnames(results) <- c("test_start", "method", "insertion_method","number_of_operations", "scenario", "heterogeneity_level", "trial", "t_header", "time_taken")
-
-results_grouped <- results %>%
-  group_by(method, number_of_operations, scenario, heterogeneity_level) %>%
-  summarise(
-    mean_time_taken = mean(as.numeric(time_taken)),
-    sd_time_taken = sd(as.numeric(time_taken)),
-    count = n()
-  ) %>%
-  mutate(
-    error = qt(0.975, df = count - 1) * sd_time_taken / sqrt(count),
-    lower_bound = mean_time_taken - error,
-    upper_bound = mean_time_taken + error
+  results <- list.files(path = folder, pattern = "^result.*\\.txt$", full.names = TRUE) %>%
+    lapply(function(file) {
+      lines <- readLines(file)
+      test_start_line <- lines[grep("^Test Start", lines)]
+      last_line <- strsplit(lines[length(lines)], ";")[[1]]
+      c(strsplit(test_start_line, ";")[[1]], last_line)
+    }) %>%
+    do.call(rbind, .) %>%
+    as.data.frame(stringsAsFactors = FALSE)
+  
+  colnames(results) <- c(
+    "test_start", "method", "insertion_method",
+    "number_of_operations", "scenario", "heterogeneity_level",
+    "trial", "t_header", "time_taken"
   )
-
-  return (results_grouped)
+  
+  results$time_taken <- as.numeric(results$time_taken)  # Ensure it's numeric early
+  
+  results_grouped <- results %>%
+    group_by(method, number_of_operations, scenario, heterogeneity_level) %>%
+    group_modify(~ {
+      df <- .x
+      
+      # Remove the two farthest from the mean
+      time_vals <- df$time_taken
+      mean_time <- mean(time_vals)
+      
+      distances <- abs(time_vals - mean_time)
+      
+      if (length(time_vals) > 2) {
+        remove_idx <- order(distances, decreasing = TRUE)[1:2]
+        time_vals_clean <- time_vals[-remove_idx]
+      } else {
+        time_vals_clean <- time_vals  # If <= 2 values, keep as is
+      }
+      
+      data.frame(
+        mean_time_taken = mean(time_vals_clean),
+        sd_time_taken = sd(time_vals_clean),
+        count = length(time_vals_clean)
+      )
+    }) %>%
+    mutate(
+      error = qt(0.975, df = count - 1) * sd_time_taken / sqrt(count),
+      lower_bound = mean_time_taken - error,
+      upper_bound = mean_time_taken + error
+    )
+  
+  return(results_grouped)
 }
+
+
+process_results_check_files <- function(folder) {
+  files <- list.files(path = folder, pattern = "^result.*\\.txt$", full.names = TRUE)
+  
+  bad_files <- c()
+  good_results <- list()
+  
+  for (file in files) {
+    lines <- readLines(file)
+    
+    # Check for Test Start line
+    test_start_line <- grep("^Test Start", lines, value = TRUE)
+    if (length(test_start_line) == 0) {
+      bad_files <- c(bad_files, file)
+      next
+    }
+    
+    last_line <- lines[length(lines)]
+    
+    # Split parts
+    test_start_parts <- strsplit(test_start_line, ";")[[1]]
+    last_line_parts <- strsplit(last_line, ";")[[1]]
+    
+    combined <- c(test_start_parts, last_line_parts)
+    
+    if (length(combined) != 9) {
+      bad_files <- c(bad_files, file)
+      next
+    }
+    
+    good_results[[file]] <- combined
+  }
+  
+  if (length(bad_files) > 0) {
+    cat("\n🚨 The following files are problematic:\n")
+    print(bad_files)
+  } else {
+    cat("\n✅ No problematic files found!\n")
+  }
+}
+
+
 
 process_results_operations <- function(folder) {
   results <- list.files(path=folder, pattern="^result.*\\.txt$", full.names=TRUE) %>%
@@ -64,6 +129,8 @@ process_results_operations <- function(folder) {
   
   return (results_grouped)
 }
+
+
 
 ################################ PLOTS ###############################################################
 
@@ -172,7 +239,7 @@ plot_execution_time_heterogeneitylevel_bars <- function(results_grouped, number_
 }
 
 
-plot_execution_time_opsmethod <- function(results_grouped_preprocess, results_grouped_rewrite, scenario, heterogeneity_level, title) {
+plot_execution_time_opsmethod <- function(results_grouped_preprocess, results_grouped_rewrite, scenario, heterogeneity_level, title, xlab) {
   preprocess <- results_grouped_preprocess[results_grouped_preprocess$scenario == scenario & results_grouped_preprocess$heterogeneity_level == heterogeneity_level,]
   rewrite <- results_grouped_rewrite[results_grouped_rewrite$scenario == scenario & results_grouped_rewrite$heterogeneity_level == heterogeneity_level,]
   
@@ -187,7 +254,7 @@ plot_execution_time_opsmethod <- function(results_grouped_preprocess, results_gr
     geom_point(data=rewrite, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Rewrite'), size=3) +    
     
     
-    xlab('Number of insert/select Operations') + 
+    xlab(xlab) + 
     ylab('Execution Time (s)') +
     ggtitle(title) +
     scale_colour_manual('', breaks=c('Preprocess','Rewrite'), values=c('red','blue')) + 
@@ -350,9 +417,9 @@ plot_operations_method_performance_all_bar <- function(results_noindex, results_
 
 ################################ TABLE GENERATOR ##################################################
 
-##For detailed table in paper
-read_results_summary <- function(folder, heterogeneity_level,number_of_operations) {
-  results <- list.files(path=folder, pattern="^result.*\\.txt$", full.names=TRUE) %>%
+## For detailed table in paper
+read_results_summary <- function(folder, heterogeneity_level, number_of_operations) {
+  results <- list.files(path = folder, pattern = "^result.*\\.txt$", full.names = TRUE) %>%
     lapply(function(file) {
       lines <- readLines(file)
       test_start_line <- lines[grep("^Test Start", lines)]
@@ -362,28 +429,52 @@ read_results_summary <- function(folder, heterogeneity_level,number_of_operation
     do.call(rbind, .) %>%
     as.data.frame(stringsAsFactors = FALSE)
   
+  colnames(results) <- c(
+    "test_start", "method", "insertion_method",
+    "number_of_operations", "scenario", "heterogeneity_level",
+    "trial", "t_header", "time_taken"
+  )
   
-  colnames(results) <- c("test_start", "method", "insertion_method","number_of_operations", "scenario", "heterogeneity_level", "trial", "t_header", "time_taken")
-  results = results[results$heterogeneity_level==heterogeneity_level,]
-  results = results[results$number_of_operations==number_of_operations,]
+  # Filter based on parameters
+  results <- results[
+    results$heterogeneity_level == heterogeneity_level &
+      results$number_of_operations == number_of_operations, 
+  ]
+  
   results$time_taken <- as.numeric(results$time_taken) / as.numeric(results$number_of_operations)
-  
   
   results_grouped <- results %>%
     group_by(method, scenario) %>%
-    summarise(
-      mean_time_taken = mean(as.numeric(time_taken)),
-      sd_time_taken = sd(as.numeric(time_taken)),
-      count = n()
-    ) %>%
+    group_modify(~ {
+      df <- .x
+      
+      time_vals <- df$time_taken
+      mean_time <- mean(time_vals)
+      
+      distances <- abs(time_vals - mean_time)
+      
+      if (length(time_vals) > 2) {
+        remove_idx <- order(distances, decreasing = TRUE)[1:2]
+        time_vals_clean <- time_vals[-remove_idx]
+      } else {
+        time_vals_clean <- time_vals  # If <= 2 points, don't remove anything
+      }
+      
+      data.frame(
+        mean_time_taken = mean(time_vals_clean),
+        sd_time_taken = sd(time_vals_clean),
+        count = length(time_vals_clean)
+      )
+    }) %>%
     mutate(
       error = qt(0.975, df = count - 1) * sd_time_taken / sqrt(count),
       lower_bound = mean_time_taken - error,
       upper_bound = mean_time_taken + error
     )
   
-  return (results_grouped)
+  return(results_grouped)
 }
+
 
 ############################################################################3
 
@@ -402,8 +493,8 @@ ggsave("plot_execution_time_scenarios_preprocess_0.15.png", plot_execution_time_
 ggsave("plot_execution_time_scenarios_rewrite_0.15.png", plot_execution_time_scenarios(results_rewrite_twofields_noindex, 0.15, ''), width = 10, height = 8)
 ggsave("plot_execution_time_heterogeneitylevel_bars_preprocess.png", plot_execution_time_heterogeneitylevel_bars(results_preprocess_twofields_noindex, 500, ''), width = 10, height = 8)
 ggsave("plot_execution_time_heterogeneitylevel_bars_rewrite.png", plot_execution_time_heterogeneitylevel_bars(results_rewrite_twofields_noindex, 500, ''), width = 10, height = 8)
-ggsave("plot_execution_time_opsmethod_read_only_30_2F.png", plot_execution_time_opsmethod(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 0, 0.3, ''), width = 10, height = 8)
-ggsave("plot_execution_time_opsmethod_write_only_30_2F.png", plot_execution_time_opsmethod(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 1, 0.3, ''), width = 10, height = 8)
+ggsave("plot_execution_time_opsmethod_read_only_30_2F.png", plot_execution_time_opsmethod(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 0, 0.3, '', 'Number of select operations'), width = 10, height = 8)
+ggsave("plot_execution_time_opsmethod_write_only_30_2F.png", plot_execution_time_opsmethod(results_preprocess_twofields_noindex, results_rewrite_twofields_noindex, 1, 0.3, '', 'Number of insert operations'), width = 10, height = 8)
 
 
 results_preprocess_twofields_noindex <- process_results('indexes experiment/preprocess/no index/')
@@ -416,7 +507,7 @@ results_rewrite_twofields_indexed <- process_results('indexes experiment/rewrite
 ggsave("plot_execution_time_scenarios_approaches_all_200_2F.png", plot_execution_time_scenarios_all_bar(results_preprocess_twofields_noindex,results_rewrite_twofields_noindex,results_preprocess_twofields_indexed, results_rewrite_twofields_indexed, 0.3, 500, ''), width = 11, height = 8)
 
 
-results_operations_indexed <- process_results_operations('/home/pedro/Documents/USP/Mestrado/Pesquisa/experimentos_datasus_operations_methods/results_indexed/')
+results_operations_indexed <- process_results_operations('initialization experiment/indexed/')
 results_operations_not_indexed <- process_results_operations('initialization experiment/no index/')
 
 # Call the function and save the plot

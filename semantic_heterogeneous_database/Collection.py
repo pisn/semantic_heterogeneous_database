@@ -77,9 +77,9 @@ class Collection:
     
     def create_index(self, fields):
         if self.operation_mode == 'preprocess':
-            self.collection_processed.create_index([(field[0],field[1]) for field in fields]) ## in preprocess operation mode, queries are really executed over the processed collection
+            self.collection_processed.create_index([(field,1) for field in fields]) ## in preprocess operation mode, queries are really executed over the processed collection
         elif self.operation_mode == 'rewrite':
-            self.collection.create_index([(field[0],field[1]) for field in fields])
+            self.collection.create_index([(field,1) for field in fields])
 
     def update_versions(self):
         normalized = pd.json_normalize(self.collection_versions.find())

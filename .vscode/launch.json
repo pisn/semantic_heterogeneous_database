@@ -4,22 +4,65 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-    {"name":"Python: Current File","type":"python","request":"launch","program":"${file}","console":"integratedTerminal"},
-    {
-        "name": "Python: Manual Test File",
-        "type": "python",
-        "request": "launch",
-        "program": "manual_test.py",
-        "console": "integratedTerminal"
-    },
-    {
-        "name": "Python: Unittest File",
-        "type": "python",
-        "request": "launch",
-        "program": "tests.py",
-        "console": "integratedTerminal"
-    }
-
-
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Manual Test File",
+            "type": "python",
+            "request": "launch",
+            "program": "manual_test.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Unittest File",
+            "type": "python",
+            "request": "launch",
+            "program": "tests.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Simulations Real Cases",
+            "type": "python",
+            "request": "launch",
+            "program": "simulations_realcases.py",
+            "console": "integratedTerminal",
+            "args": [
+            "--host", "localhost",
+            "--dbname", "experimento_datasus",
+            "--collectionname", "db_experimento_datasus",
+            "--sourcefolder", "/home/pedro/Documents/USP/Mestrado/Pesquisa/reorganizando experimentos/source data/",
+            "--datecolumn", "RefDate",
+            "--csvdestination", "/home/pedro/Documents/USP/Mestrado/Pesquisa/reorganizando experimentos/results",
+            "--operationsfile", "/home/pedro/Documents/USP/Mestrado/Pesquisa/reorganizando experimentos/semantic operations/operations_cid9_cid10.csv",
+            "--trials", "1", "10",
+            "--method", "operations_first",
+            "--querysource", "/home/pedro/Documents/USP/Mestrado/Pesquisa/reorganizando experimentos/indexes experiment/queries/",
+            "--numberofoperations", "100", "400", "100",
+            "--approach", "rewrite"
+            ]
+        },
+        {
+            "name": "Python: Simulations Real Cases Operations",
+            "type": "python",
+            "request": "launch",
+            "program": "simulations_realcases_operations.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--host", "localhost",
+                "--dbname", "experimento_datasus",
+                "--collectionname", "db_experimento_datasus",
+                "--sourcefolder", "/home/pedro/Documents/USP/Mestrado/Pesquisa/exp/source data/",
+                "--datecolumn", "RefDate",
+                "--csvdestination", "/home/pedro/Documents/USP/Mestrado/Pesquisa/exp/results",
+                "--operationsfile", "/home/pedro/Documents/USP/Mestrado/Pesquisa/exp/semantic operations/operations_cid9_cid10.csv",
+                "--trials", "1", "10",                
+                "--methods","operations_first"
+            ]
+        }
     ]
 }

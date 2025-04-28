@@ -26,9 +26,9 @@ class Comparator:
         os.makedirs(csv_destination, exist_ok=True)
 
     def __create_indexes(self):
-        if self.indexes:
-            for index in self.indexes:
-                self.collection.create_index(index)
+        if self.indexes:       
+            print(f'Creating indexes: {self.indexes}')     
+            self.collection.create_index(self.indexes)
 
     def __insert_first(self):            
         start = time.time()
@@ -60,7 +60,7 @@ class Comparator:
         ret = {
             'execution_time': (end-start)        
         }
-        with open(f'{self.csv_destination}{self.output_file}', 'a') as results_file:
+        with open(f'{self.csv_destination}/{self.output_file}', 'a') as results_file:
             results_file.write('insertion;operations_first;'+str(ret['execution_time'])+'\n')    
 
         return ret
@@ -89,7 +89,7 @@ class Comparator:
         client = MongoClient(self.host)
         client.drop_database(self.dbname)
         print('Database Dropped')    
-
+        
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run database operations experiments.")
     parser.add_argument("--host", type=str, default="localhost", help="MongoDB host")
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     parser.add_argument("--datecolumn", type=str, required=True, help="Date column in the source CSV")
     parser.add_argument("--csvdestination", type=str, required=True, help="Destination folder for results")
     parser.add_argument("--operationsfile", type=str, required=True, help="CSV file with operations")
-    parser.add_argument("--trials", type=int, default=10, help="Number of trials to execute")
+    parser.add_argument("--trials", type=int, nargs=2, required=True, help="Range of trials to execute (start and end)")
     parser.add_argument("--indexes", type=str, nargs="*", default=None, help="List of indexes to create")
     parser.add_argument("--methods", type=str, nargs="*", default=["insertion_first", "operations_first"], 
                         choices=["insertion_first", "operations_first"], 
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     date_columns = args.datecolumn
     csv_destination = args.csvdestination
     operations_file = args.operationsfile
-    trials = args.trials
+    trials_start, trials_end = args.trials
     indexes = args.indexes
     methods = args.methods
 
@@ -122,7 +122,7 @@ if __name__ == "__main__":
 
     with open(f"{csv_destination}/experiment_log.txt", "w") as log_file:
         for method in methods:
-            for execution_try in range(trials):
+            for execution_try in range(trials_start, trials_end + 1):
                 output_file = f"results_operations_{method}_{str(execution_try)}.txt"
 
                 try:

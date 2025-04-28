@@ -57,7 +57,7 @@ class Comparator:
             'execution_time': (end-start)        
         }
 
-        with open(f'{self.csv_destination}{self.output_file}', 'a') as results_file:
+        with open(f'{self.csv_destination}/{self.output_file}', 'a') as results_file:
             results_file.write('insertion;insertion_first;'+str(ret['execution_time'])+'\n')    
 
         return ret
@@ -74,7 +74,7 @@ class Comparator:
         ret = {
             'execution_time': (end-start)        
         }
-        with open(f'{self.csv_destination}{self.output_file}', 'a') as results_file:
+        with open(f'{self.csv_destination}/{self.output_file}', 'a') as results_file:
             results_file.write('insertion;operations_first;'+str(ret['execution_time'])+'\n')    
 
         return ret
@@ -219,8 +219,7 @@ class Comparator:
                 file.write(f'{query[0]};{query[1]};{query[2]}\n')
     
     def generate_queries_list_fields(self):
-        output_file = f'queries_{str(self.percent_of_heterogeneous_queries)}_{str(self.percent_of_insertions)}_{str(self.number_of_operations)}.txt'
-        queries_file = self.csv_destination + output_file
+        queries_file = os.path.join(self.query_source, f'queries_{str(self.percent_of_heterogeneous_queries)}_{str(self.percent_of_insertions)}_{str(self.number_of_operations)}.txt')        
 
         if os.path.exists(queries_file):            
             return
@@ -311,13 +310,13 @@ class Comparator:
         print('Database Dropped')
 
     def execute_queries(self):       
-        queries_file = f'queries_{str(self.percent_of_heterogeneous_queries)}_{str(self.percent_of_insertions)}_{str(self.number_of_operations)}.txt'
+        queries_file = os.path.join(self.query_source, f'queries_{str(self.percent_of_heterogeneous_queries)}_{str(self.percent_of_insertions)}_{str(self.number_of_operations)}.txt')        
 
-        queries = pd.read_csv(self.csv_destination + queries_file, sep=';')
+        queries = pd.read_csv(queries_file, sep=';')
 
         time_taken = 0.0
 
-        with open(f'{self.csv_destination}{self.output_file}', 'a') as results_file:
+        with open(f'{self.csv_destination}/{self.output_file}', 'a') as results_file:
             results_file.write(f'Test Start;{self.operation_mode};{self.method};{str(self.number_of_operations)};{str(self.percent_of_insertions)};{str(self.percent_of_heterogeneous_queries)};{str(self.execution_try)}\n')
             results_file.write('operation_mode;type;query;hashed_result\n')            
             for idx,row in queries.iterrows():                
@@ -336,13 +335,8 @@ class Comparator:
                         continue
                     
                     time_taken += (end-start)
-
-                    if self.generate_hashes:
-                        result = [{k: v for k, v in sorted(d.items()) if not k.startswith('_')} for d in query_result]
-                        result_sorted = sorted(result, key=lambda x: json.dumps({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in x.items()}, sort_keys=True))                
-                        results_file.write(f'{self.operation_mode};query;{query_str.strip()};{str(hash(str(result_sorted)))};{str(end-start)}\n')                    
-                    else:
-                        results_file.write(f'{self.operation_mode};query;{query_str.strip()};;{str(end-start)}\n')                    
+                    
+                    results_file.write(f'{self.operation_mode};query;{query_str.strip()};;{str(end-start)}\n')                    
 
                     
                 else:                                        
@@ -374,18 +368,16 @@ if __name__ == "__main__":
     parser.add_argument("--dbname", type=str, required=True, help="Database name")
     parser.add_argument("--collectionname", type=str, required=True, help="Collection name")
     parser.add_argument("--sourcefolder", type=str, required=True, help="Source folder for CSV files")
+    parser.add_argument("--csvdestination", type=str, required=True, help="Destination folder for results")
     parser.add_argument("--datecolumn", type=str, required=True, help="Date column in the source CSV")
     parser.add_argument("--approach", type=str, required=True, help="Approach to use. Options: 'preprocess','rewrite'",choices=["preprocess", "rewrite"])
     parser.add_argument("--method", type=str, default="insertion_first", 
                         choices=["insertion_first", "operations_first"], 
                         help="Method to execute. Options: 'insertion_first', 'operations_first'")
     parser.add_argument("--operationsfile", type=str, required=True, help="CSV file with operations")
-    parser.add_argument("--trials", type=int, default=10, help="Number of trials to execute")
+    parser.add_argument("--trials", type=int, nargs=2, required=True, help="Range of trials to execute (start and end)")
     parser.add_argument("--numberofoperations", type=int, nargs=3, metavar=('start', 'end', 'pace'), 
-                        help="Range for number of operations: start, end, and pace")
-    parser.add_argument("--method", type=str, default="insertion_first", 
-                        choices=["insertion_first", "operations_first"], 
-                        help="Method to execute. Options: 'insertion_first', 'operations_first'")
+                        help="Range for number of operations: start, end, and pace")    
     parser.add_argument("--indexes", type=str, nargs="*", default=None, help="List of indexes to create")    
     parser.add_argument("--querysource", type=str, required=True, help="Path to read and write the queries from")
     
@@ -401,21 +393,27 @@ if __name__ == "__main__":
     operations_file = args.operationsfile
     trials = args.trials
     indexes = args.indexes
-    method = args.methods
+    method = args.method
     number_of_operations_a = args.numberofoperations
     operation_mode = args.approach
+    trials_start, trials_end = args.trials
     query_source = args.querysource
     
 
     rebuild = True
 
     with open(f"{csv_destination}/experiment_log.txt", "w") as log_file:
-        for execution_try in range(trials):
+        for execution_try in range(trials_start, trials_end + 1):
             for number_of_operations in range(number_of_operations_a[0], number_of_operations_a[1] + 1, number_of_operations_a[2]):
                 for percent_of_heterogeneous_queries in [0.15,0.3]:
                     for percent_of_insertions in [0,0.05,0.5,0.95,1]:
 
                         output_file = f'results_{str(percent_of_heterogeneous_queries)}_{str(percent_of_insertions)}_{str(number_of_operations)}_{str(operation_mode)}_{str(execution_try)}.txt'                            
+                        
+                        if os.path.exists(f"{csv_destination}/{output_file}"):
+                            print(f"File {output_file} already exists. Skipping...")
+                            log_file.write(f"File {output_file} already exists. Skipping...\n")
+                            continue
 
                         try:
                             print(f"Starting execution for {output_file}...")
