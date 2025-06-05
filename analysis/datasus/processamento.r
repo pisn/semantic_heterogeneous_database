@@ -165,7 +165,8 @@ plot_execution_time_scenarios <- function(results_grouped ,heterogeneity_level, 
     xlab('Number of insert/select Operations') + 
     ylab('Execution Time (s)') +
     ggtitle(title) +
-    scale_colour_manual('', breaks=c('Write-Only','Write-Heavy','50/50','Read-Heavy','Read-Only'), values=c('red','darksalmon','purple','cornflowerblue','blue')) + 
+    scale_colour_manual('', breaks=c('Write-Only','Write-Heavy','50/50','Read-Heavy','Read-Only'), 
+                        values=c('#D55E00','#E69F00','#56B4E9','#0072B2','#009E73')) + 
     scale_x_continuous(breaks=c(100,200,300,400,500,600,700,800,900)) +
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = c(.05, .95),
@@ -194,7 +195,8 @@ plot_execution_time_fields <- function(results_grouped_onefield, results_grouped
     xlab('Number of insert/select Operations') + 
     ylab('Execution Time (s)') +
     ggtitle(title) +
-    scale_colour_manual('', breaks=c("One Het.Field","Two Het. Fields"), values=c('red','blue')) + 
+    scale_colour_manual('', breaks=c("One Het.Field","Two Het. Fields"), 
+                        values=c('#D55E00','#0072B2')) + 
     scale_x_continuous(breaks=c(100,200,300,400,500,600,700,800,900)) +
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = c(.05, .95),
@@ -226,7 +228,7 @@ plot_execution_time_heterogeneitylevel_bars <- function(results_grouped, number_
     ylab('Execution Time (s)') +
     ggtitle(title) +
     scale_fill_manual('', breaks=c('30%','15%'), 
-                      values=c('blue','red')) + 
+                      values=c('#0072B2','#D55E00')) + 
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = "bottom",
           legend.justification = "center",
@@ -257,7 +259,8 @@ plot_execution_time_opsmethod <- function(results_grouped_preprocess, results_gr
     xlab(xlab) + 
     ylab('Execution Time (s)') +
     ggtitle(title) +
-    scale_colour_manual('', breaks=c('Preprocess','Rewrite'), values=c('red','blue')) + 
+    scale_colour_manual('', breaks=c('Preprocess','Rewrite'), 
+                        values=c('#D55E00','#0072B2')) + 
     scale_x_continuous(breaks=c(100,200,300,400,500,600,700,800,900)) +
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = c(.05, .95),
@@ -288,7 +291,8 @@ plot_execution_indexed <- function(results_noindex, results_indexed, scenario, h
     xlab('Number of insert/select Operations') + 
     ylab('Execution Time (s)') +
     ggtitle(title) +
-    scale_colour_manual('', breaks=c('No-Index','Indexed'), values=c('red','blue')) + 
+    scale_colour_manual('', breaks=c('No-Index','Indexed'), 
+                        values=c('#D55E00','#0072B2')) + 
     scale_x_continuous(breaks=c(100,200,300,400,500,600,700,800,900)) +
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = c(.05, .95),
@@ -317,7 +321,8 @@ plot_execution_index_methods <- function(results_index_preprocess, results_index
     xlab('Number of insert/select Operations') + 
     ylab('Execution Time (s)') +
     ggtitle(title) +
-    scale_colour_manual('', breaks=c('Preprocess','Rewrite'), values=c('red','blue')) + 
+    scale_colour_manual('', breaks=c('Preprocess','Rewrite'), 
+                        values=c('#D55E00','#0072B2')) + 
     scale_x_continuous(breaks=c(100,200,300,400,500,600,700,800,900)) +
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = c(.05, .95),
@@ -346,7 +351,7 @@ plot_execution_time_scenarios_all_bar <- function(results_preprocess_noindex, re
     ylab('Execution Time (log(s))') +
     ggtitle(title) +
     scale_fill_manual('', breaks=c('Preprocess (Indexed)','Preprocess (No Index)','Rewrite (Indexed)','Rewrite (No Index)'), 
-                      values=c('lightblue','blue','pink','red')) + 
+                      values=c('#009E73','#56B4E9','#0072B2','#D55E00')) + 
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = "bottom",
           legend.justification = "center",
@@ -369,7 +374,7 @@ plot_operations_method_performance <- function(results_operations) {
     ggtitle('') +
     scale_fill_manual('', breaks = c('insertion_first', 'operations_first'), 
                       labels = c('Insertion First', 'Operations First'), 
-                      values = c('insertion_first' = 'blue', 'operations_first' = 'red')) +
+                      values = c('insertion_first' = '#0072B2', 'operations_first' = '#D55E00')) +
     theme(panel.background = element_rect(fill = 'white', colour = 'black'),
           legend.position = "bottom",
           legend.justification = "center",
@@ -399,7 +404,7 @@ plot_operations_method_performance_all_bar <- function(results_noindex, results_
     ylab('Execution Time (s)') +
     ggtitle(title) +
     scale_fill_manual('', breaks=c('Operations First (Indexed)','Operations First (No Index)','Insertion First (Indexed)','Insertion First (No Index)'), 
-                      values=c('lightblue','blue','pink','red')) + 
+                      values=c('#0072B2','#56B4E9','#D55E00','#E69F00')) + 
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = "bottom",
           legend.justification = "center",
