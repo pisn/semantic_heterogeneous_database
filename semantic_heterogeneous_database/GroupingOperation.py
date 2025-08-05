@@ -15,16 +15,16 @@ class GroupingOperation:
 
     def execute_operation(self, validFromDate:datetime, args:dict):
         if 'oldValues' not in args:
-            raise ArgumentError("oldValues","Missing 'oldValues' parameter for grouping")
+            raise ArgumentError("oldValues","Missing 'oldValues' parameter for merging")
         
         if not isinstance(args['oldValues'],list):
             raise ArgumentError('oldValues','OldValues argument must be a list')
         
         if 'newValue' not in args:
-            raise ArgumentError("newValue","Missing 'newValue' parameter for grouping")
+            raise ArgumentError("newValue","Missing 'newValue' parameter for merging")
 
         if 'fieldName' not in args:
-            raise ArgumentError("fieldName","Missing 'fieldName' parameter for grouping")
+            raise ArgumentError("fieldName","Missing 'fieldName' parameter for merging")
 
         oldValues = args['oldValues']
         newValue=args['newValue']
@@ -58,7 +58,7 @@ class GroupingOperation:
         
         if self.collection.operation_mode == 'preprocess': 
 
-            ##Grouping do not work forward    
+            ##Merging do not work forward    
 
             ## Forward
             temporary_collection = str(uuid.uuid4())
@@ -102,7 +102,7 @@ class GroupingOperation:
             "previous_version":previous_version['version_number'],
             "previous_version_valid_from": previous_version['version_valid_from'],
             "previous_operation": {
-                "type": "grouping",
+                "type": "merging",
                 "field":fieldName,
                 "from":newValue,
                 "to":oldValues                
@@ -113,7 +113,7 @@ class GroupingOperation:
         }        
 
         next_operation = {
-            "type": "grouping",
+            "type": "merging",
             "field": fieldName,
             "from":oldValues,
             "to":newValue
@@ -157,7 +157,7 @@ class GroupingOperation:
         original_version = versions_df.loc[versions_df['version_number'] == Document['_original_version']].iloc[0]
 
         if 'next_operation.type' in versions_df.columns:
-            versions_df_p = versions_df.loc[(versions_df['next_operation.type'] == 'grouping') & (versions_df['next_version_valid_from'] > original_version['version_valid_from']) & (versions_df['next_version'] <= Document['_max_version_number']) & (versions_df['next_version'] >= Document['_min_version_number']) ]
+            versions_df_p = versions_df.loc[(versions_df['next_operation.type'].isin(['merging', 'grouping'])) & (versions_df['next_version_valid_from'] > original_version['version_valid_from']) & (versions_df['next_version'] <= Document['_max_version_number']) & (versions_df['next_version'] >= Document['_min_version_number']) ]
 
             if len(versions_df_p) > 0:
                 if {'next_operation.type','next_operation.field', 'next_operation.from'}.issubset(versions_df.columns):  
@@ -194,10 +194,10 @@ class GroupingOperation:
         versions_df = self.collection.versions_df        
         return_obj = list()
 
-        ## Grouping operation can only be applied forward.
+        ## Merging operation can only be applied forward.
 
         if 'next_operation.type' in versions_df:
-            versions_df_p = self.collection.versions_df.loc[versions_df['next_operation.type'] == 'grouping']
+            versions_df_p = self.collection.versions_df.loc[versions_df['next_operation.type'].isin(['merging', 'grouping'])]
             versions_df_p = versions_df_p.explode('next_operation.from') #Abrindo listas dos grupos em linhas diferentes
 
             if len(versions_df_p) > 0:

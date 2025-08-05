@@ -143,7 +143,7 @@ class Collection:
             document = check_list.pop()           
 
             for operationType in self.semantic_operations:
-                if operationType in ['grouping','translation','ungrouping']:
+                if operationType in ['merging','translation','splitting','grouping','ungrouping']:
                     affected_versions = self.semantic_operations[operationType].check_if_affected(document)                                       
                     
                     if affected_versions != None:                                           
@@ -977,15 +977,19 @@ class Collection:
             print('Executing translation ' + str(i))
             self.execute_operation('translation', datetime.strptime(row['valid_from'], '%Y-%m-%d'), {'fieldName':row['field'], 'oldValue':row['from'], 'newValue':row['to']})            
 
-        for group in operations.loc[operations['type']=='grouping'].groupby(['to','valid_from','field']):
+        # Support both new and old operation names for merging/grouping
+        for group in operations.loc[operations['type'].isin(['merging', 'grouping'])].groupby(['to','valid_from','field']):
             i = i + 1
-            print('Executing grouping ' + str(i))
-            self.execute_operation('grouping', datetime.strptime(group[0][1], '%Y-%m-%d'), {'fieldName':group[0][2], 'oldValues':list(group[1]['from'].values), 'newValue':group[0][0]})            
+            operation_name = 'merging' if 'merging' in operations['type'].values else 'grouping'
+            print('Executing merging ' + str(i))
+            self.execute_operation('merging', datetime.strptime(group[0][1], '%Y-%m-%d'), {'fieldName':group[0][2], 'oldValues':list(group[1]['from'].values), 'newValue':group[0][0]})            
 
-        for group in operations.loc[operations['type']=='ungrouping'].groupby(['from','valid_from','field']):
+        # Support both new and old operation names for splitting/ungrouping
+        for group in operations.loc[operations['type'].isin(['splitting', 'ungrouping'])].groupby(['from','valid_from','field']):
             i = i + 1
-            print('Executing ungrouping ' + str(i))
-            self.execute_operation('ungrouping', datetime.strptime(group[0][1], '%Y-%m-%d'), {'fieldName':group[0][2], 'oldValue':group[0][0], 'newValues':list(group[1]['to'].values)})            
+            operation_name = 'splitting' if 'splitting' in operations['type'].values else 'ungrouping'
+            print('Executing splitting ' + str(i))
+            self.execute_operation('splitting', datetime.strptime(group[0][1], '%Y-%m-%d'), {'fieldName':group[0][2], 'oldValue':group[0][0], 'newValues':list(group[1]['to'].values)})            
 
 
     def check_if_operation_affected_forward(self, fieldName, newValue, version_number):

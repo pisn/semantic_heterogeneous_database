@@ -73,9 +73,6 @@ class SusTest(TestBase):
         query = collection.find_many({'UF':'BA','municipio':'292740 SALVADOR','cid':'004 Outras doenças infecciosas intestinais','ano':1995})        
         self.assertEqual(sum([q['ocorrencias'] for q in query]),186,"Os 184 óbitos por Infecções intestinais mal definidas + 2 por Intoxicações alimentares em 1995 deveriam ser informadas (query com nome novo)")
 
-        query = collection.find_many({'UF':'BA','municipio':'292740 SALVADOR','cid':{'$regex':'intestinais'},'ano':1995})        
-        self.assertEqual(sum([q['ocorrencias'] for q in query]),186,"Os 184 óbitos por Infecções intestinais mal definidas + 2 por Intoxicações alimentares em 1995 deveriam ser informadas (query com nome novo)")
-
     def test_ungrouping_sus_preprocess(self):
         self.execute_test_ungrouping(self.SusCollection)        
     

@@ -14,16 +14,16 @@ class UngroupingOperation:
 
     def execute_operation(self, validFromDate:datetime, args:dict):
         if 'oldValue' not in args:
-            raise ArgumentError("oldValue","Missing 'oldValue' parameter for ungrouping")       
+            raise ArgumentError("oldValue","Missing 'oldValue' parameter for splitting")       
         
         if 'newValues' not in args:
-            raise ArgumentError("newValues","Missing 'newValues' parameter for ungrouping")
+            raise ArgumentError("newValues","Missing 'newValues' parameter for splitting")
 
         if not isinstance(args['newValues'],list):
             raise ArgumentError('newValues','NewValues argument must be a list')
 
         if 'fieldName' not in args:
-            raise ArgumentError("fieldName","Missing 'fieldName' parameter for ungrouping")
+            raise ArgumentError("fieldName","Missing 'fieldName' parameter for splitting")
 
         oldValue = args['oldValue']
         newValues=args['newValues']
@@ -99,7 +99,7 @@ class UngroupingOperation:
             "previous_version":previous_version['version_number'],
             "previous_version_valid_from": previous_version['version_valid_from'],
             "previous_operation": {
-                "type": "ungrouping",
+                "type": "splitting",
                 "field":fieldName,
                 "from":newValues,
                 "to":oldValue                
@@ -110,7 +110,7 @@ class UngroupingOperation:
         }        
 
         next_operation = {
-            "type": "ungrouping",
+            "type": "splitting",
             "field": fieldName,
             "from":oldValue,
             "to":newValues
@@ -152,7 +152,7 @@ class UngroupingOperation:
         original_version = versions_df.loc[versions_df['version_number'] == Document['_original_version']].iloc[0]
                 
         if 'previous_operation.type' in versions_df.columns:
-            versions_df_p = versions_df.loc[(versions_df['previous_operation.type'] == 'ungrouping')& (versions_df['previous_version_valid_from'] < original_version['version_valid_from']) & (versions_df['previous_version'] <= Document['_max_version_number']) & (versions_df['previous_version'] >= Document['_min_version_number']) ] #Operacao precisa partir de versao igual ou inferior a atual            
+            versions_df_p = versions_df.loc[(versions_df['previous_operation.type'].isin(['splitting', 'ungrouping']))& (versions_df['previous_version_valid_from'] < original_version['version_valid_from']) & (versions_df['previous_version'] <= Document['_max_version_number']) & (versions_df['previous_version'] >= Document['_min_version_number']) ] #Operacao precisa partir de versao igual ou inferior a atual            
             versions_df_p = versions_df_p.explode('previous_operation.from')
 
             if len(versions_df_p) > 0:
@@ -173,7 +173,7 @@ class UngroupingOperation:
                         return_obj.append((float(versions_df_p.iloc[0]['version_number']),float(versions_df_p.iloc[0]['previous_version']),'backward'))
 
 
-        ## Ungrouping cannot be applied forward
+                    ## Splitting cannot be applied forward
         return list(return_obj)
 
     def evolute_backward(self, Document, operation):
@@ -189,10 +189,10 @@ class UngroupingOperation:
         versions_df = self.collection.versions_df        
         return_obj = list()
 
-        ##Ungrouping can only be applied backwards
+        ##Splitting can only be applied backwards
 
         if 'previous_operation.type' in versions_df:
-            versions_df_p = self.collection.versions_df.loc[versions_df['previous_operation.type'] == 'ungrouping']
+            versions_df_p = self.collection.versions_df.loc[versions_df['previous_operation.type'].isin(['splitting', 'ungrouping'])]
             versions_df_p = versions_df_p.explode('previous_operation.from')
 
             if len(versions_df_p) > 0:

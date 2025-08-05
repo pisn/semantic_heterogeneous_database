@@ -91,7 +91,7 @@ class Comparator:
         heterogeneous_domain = {}
         non_heterogeneous_domain = {}
         
-        for operation_type in ['translation','grouping','ungrouping']:
+        for operation_type in ['translation','merging','splitting']:
             fields = self.collection.collection.collection_versions.distinct('next_operation.field', {'next_operation.type':operation_type})
 
             for field in fields:

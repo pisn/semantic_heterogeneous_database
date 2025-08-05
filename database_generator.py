@@ -10,7 +10,7 @@ import json
 
 class DatabaseGenerator:
     FIELD_TYPES = ['int', 'float', 'datetime','string']
-    OPERATION_TYPE = ['grouping', 'translation','ungrouping']
+    OPERATION_TYPE = ['merging', 'translation','splitting']
 
     def __init__(self, host='localhost'):
         self.host = host     
@@ -99,7 +99,7 @@ class DatabaseGenerator:
                 'newValue' : newValue
             }
             
-        elif operation_type == 'grouping':            
+        elif operation_type == 'merging':            
             field = random.choice(self.evolution_fields) 
             fieldName = field[0]
             oldValues = [random.choice(self.field_domain[fieldName]), random.choice(self.field_domain[fieldName])]
@@ -144,7 +144,7 @@ class DatabaseGenerator:
                 'newValue' : newValue
             }
         
-        elif operation_type == 'ungrouping':
+        elif operation_type == 'splitting':
             field = random.choice(self.evolution_fields) 
             fieldName = field[0]            
             oldValue = random.choice(self.field_domain[fieldName])      
@@ -201,7 +201,7 @@ class DatabaseGenerator:
             ##Generating fields domain of available values for each field. 
             self.field_domain[field_name] = self.__generate_field_domain(field_type, number_of_values_in_domain)
 
-        fieldsList = list(filter(lambda f: f[1] != 'float', self.fields)) # float fields are not suitable for grouping and ungrouping
+        fieldsList = list(filter(lambda f: f[1] != 'float', self.fields)) # float fields are not suitable for merging and splitting
         self.evolution_fields = [random.choice(fieldsList) for i in range(number_of_evolution_fields)]
         
         self.collection = BasicCollection(self.database_name, self.collection_name, self.host, operation_mode)

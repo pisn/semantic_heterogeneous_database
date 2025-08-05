@@ -24,7 +24,12 @@ class BasicCollection:
     def initialize_collection(self):
         self.collection = Collection(self.database_name,self.collection_name, self.host, self.operation_mode)
 
+        # Register operations with new names
         self.collection.register_operation('translation', TranslationOperation(self))
+        self.collection.register_operation('merging', GroupingOperation(self))
+        self.collection.register_operation('splitting', UngroupingOperation(self))
+        
+        # Register operations with old names for backward compatibility
         self.collection.register_operation('grouping', GroupingOperation(self))
         self.collection.register_operation('ungrouping', UngroupingOperation(self))
 
