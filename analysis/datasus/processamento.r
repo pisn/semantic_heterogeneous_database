@@ -3,6 +3,7 @@ library(readr)
 library(data.table)
 library(ggplot2)
 library(scales)
+library(ggpattern)
 
 ###### FILES PROCESSING #####################################################
 
@@ -142,31 +143,37 @@ plot_execution_time_scenarios <- function(results_grouped ,heterogeneity_level, 
   mixed <- results_grouped[results_grouped$scenario == 0.5 & results_grouped$heterogeneity_level == heterogeneity_level,]
   
   ggplot() + 
-    geom_line(data=read_only, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Read-Only')) + 
-    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=read_only) +
-    geom_point(data=read_only, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Read-Only'), size=3) + 
+    geom_line(data=read_only, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Read-Only', linetype='Read-Only', shape='Read-Only')) + 
+    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound, fill='Read-Only'), alpha = 0.2, data=read_only) +
+    geom_point(data=read_only, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Read-Only', linetype='Read-Only', shape='Read-Only'), size=3) + 
     
-    geom_line(data=write_only, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Write-Only')) + 
-    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=write_only) +
-    geom_point(data=write_only, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Write-Only'), size=3) + 
+    geom_line(data=write_only, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Write-Only', linetype='Write-Only', shape='Write-Only')) + 
+    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound, fill='Write-Only'), alpha = 0.2, data=write_only) +
+    geom_point(data=write_only, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Write-Only', linetype='Write-Only', shape='Write-Only'), size=3) + 
     
-    geom_line(data=read_heavy, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Read-Heavy')) + 
-    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=read_heavy) +
-    geom_point(data=read_heavy, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Read-Heavy'), size=3) + 
+    geom_line(data=read_heavy, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Read-Heavy', linetype='Read-Heavy', shape='Read-Heavy')) + 
+    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound, fill='Read-Heavy'), alpha = 0.2, data=read_heavy) +
+    geom_point(data=read_heavy, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Read-Heavy', linetype='Read-Heavy', shape='Read-Heavy'), size=3) + 
     
-    geom_line(data=write_heavy, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Write-Heavy')) + 
-    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=write_heavy) +
-    geom_point(data=write_heavy, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Write-Heavy'), size=3) + 
+    geom_line(data=write_heavy, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Write-Heavy', linetype='Write-Heavy', shape='Write-Heavy')) + 
+    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound, fill='Write-Heavy'), alpha = 0.2, data=write_heavy) +
+    geom_point(data=write_heavy, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Write-Heavy', linetype='Write-Heavy', shape='Write-Heavy'), size=3) + 
     
-    geom_line(data=mixed, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='50/50')) + 
-    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=mixed) +
-    geom_point(data=mixed, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='50/50'), size=3) + 
+    geom_line(data=mixed, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='50/50', linetype='50/50', shape='50/50')) + 
+    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound, fill='50/50'), alpha = 0.2, data=mixed) +
+    geom_point(data=mixed, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='50/50', linetype='50/50', shape='50/50'), size=3) + 
     
     xlab('Number of insert/select Operations') + 
     ylab('Execution Time (s)') +
     ggtitle(title) +
-    scale_colour_manual('', breaks=c('Write-Only','Write-Heavy','50/50','Read-Heavy','Read-Only'), 
-                        values=c('#D55E00','#E69F00','#56B4E9','#0072B2','#009E73')) + 
+    scale_color_manual('', breaks=c('Write-Only','Write-Heavy','50/50','Read-Heavy','Read-Only'), 
+                       values=c('Write-Only'='#E69F00', 'Write-Heavy'='#56B4E9', '50/50'='#009E73', 'Read-Heavy'='#0072B2', 'Read-Only'='#CC79A7')) +
+    scale_fill_manual('', breaks=c('Write-Only','Write-Heavy','50/50','Read-Heavy','Read-Only'), 
+                      values=c('Write-Only'='#E69F00', 'Write-Heavy'='#56B4E9', '50/50'='#009E73', 'Read-Heavy'='#0072B2', 'Read-Only'='#CC79A7')) +
+    scale_linetype_manual('', breaks=c('Write-Only','Write-Heavy','50/50','Read-Heavy','Read-Only'), 
+                          values=c('solid','dashed','dotted','longdash','twodash')) + 
+    scale_shape_manual('', breaks=c('Write-Only','Write-Heavy','50/50','Read-Heavy','Read-Only'), 
+                       values=c(16,17,15,18,19)) +
     scale_x_continuous(breaks=c(100,200,300,400,500,600,700,800,900)) +
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = c(.05, .95),
@@ -183,20 +190,26 @@ plot_execution_time_fields <- function(results_grouped_onefield, results_grouped
   twofields <- results_grouped_twofields[results_grouped_twofields$scenario == scenario & results_grouped_twofields$heterogeneity_level == heterogeneity_level,]
   
   ggplot() + 
-    geom_line(data=onefield, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='One Het.Field')) + 
-    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=onefield) +
-    geom_point(data=onefield, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='One Het.Field'), size=3) + 
+    geom_line(data=onefield, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='One Het.Field', linetype='One Het.Field', shape='One Het.Field')) + 
+    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound, fill='One Het.Field'), alpha = 0.2, data=onefield) +
+    geom_point(data=onefield, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='One Het.Field', linetype='One Het.Field', shape='One Het.Field'), size=3) + 
     
-    geom_line(data=twofields, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Two Het. Fields')) + 
-    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=twofields) +
-    geom_point(data=twofields, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Two Het. Fields'), size=3) +    
+    geom_line(data=twofields, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Two Het. Fields', linetype='Two Het. Fields', shape='Two Het. Fields')) + 
+    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound, fill='Two Het. Fields'), alpha = 0.2, data=twofields) +
+    geom_point(data=twofields, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Two Het. Fields', linetype='Two Het. Fields', shape='Two Het. Fields'), size=3) +    
     
     
     xlab('Number of insert/select Operations') + 
     ylab('Execution Time (s)') +
     ggtitle(title) +
-    scale_colour_manual('', breaks=c("One Het.Field","Two Het. Fields"), 
-                        values=c('#D55E00','#0072B2')) + 
+    scale_color_manual('', breaks=c("One Het.Field","Two Het. Fields"), 
+                       values=c("One Het.Field"='#E69F00', "Two Het. Fields"='#56B4E9')) +
+    scale_fill_manual('', breaks=c("One Het.Field","Two Het. Fields"), 
+                      values=c("One Het.Field"='#E69F00', "Two Het. Fields"='#56B4E9')) +
+    scale_linetype_manual('', breaks=c("One Het.Field","Two Het. Fields"), 
+                          values=c('solid','dashed')) + 
+    scale_shape_manual('', breaks=c("One Het.Field","Two Het. Fields"), 
+                       values=c(16,17)) +
     scale_x_continuous(breaks=c(100,200,300,400,500,600,700,800,900)) +
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = c(.05, .95),
@@ -220,7 +233,8 @@ plot_execution_time_heterogeneitylevel_bars <- function(results_grouped, number_
   results$scenario = factor(results$scenario, levels = c(0,0.05,0.5,0.95,1), labels=c("Read-Only","Read-Heavy","50/50","Write-Heavy","Write-Only"))
   
   ggplot() + 
-    geom_bar(data=results, aes(x = scenario, y = mean_time_taken, fill=heterogeneity_level), stat="identity", position=position_dodge(width=0.8), width = 0.7) +     
+    geom_bar(data=results, aes(x = scenario, y = mean_time_taken, fill=heterogeneity_level), 
+             stat="identity", position=position_dodge(width=0.8), width = 0.7) +     
     geom_errorbar(data=results, aes(x = scenario, ymin = lower_bound, ymax = upper_bound, group = heterogeneity_level), 
                   width = 0.2, position=position_dodge(width=0.8), size=1) +
     
@@ -228,11 +242,10 @@ plot_execution_time_heterogeneitylevel_bars <- function(results_grouped, number_
     ylab('Execution Time (s)') +
     ggtitle(title) +
     scale_fill_manual('', breaks=c('30%','15%'), 
-                      values=c('#0072B2','#D55E00')) + 
+                      values=c('30%' = '#E69F00', '15%' = '#56B4E9')) + 
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = "bottom",
           legend.justification = "center",
-          # legend.box.just = "center",
           legend.margin = margin(6, 6, 6, 6),
           legend.text = element_text(size=25),
           legend.title = element_text(size=20),
@@ -247,20 +260,26 @@ plot_execution_time_opsmethod <- function(results_grouped_preprocess, results_gr
   
   
   ggplot() + 
-    geom_line(data=preprocess, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Preprocess')) + 
-    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=preprocess) +
-    geom_point(data=preprocess, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Preprocess'), size=3) + 
+    geom_line(data=preprocess, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Preprocess', linetype='Preprocess', shape='Preprocess')) + 
+    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound, fill='Preprocess'), alpha = 0.2, data=preprocess) +
+    geom_point(data=preprocess, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Preprocess', linetype='Preprocess', shape='Preprocess'), size=3) + 
     
-    geom_line(data=rewrite, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Rewrite')) + 
-    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=rewrite) +
-    geom_point(data=rewrite, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Rewrite'), size=3) +    
+    geom_line(data=rewrite, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Rewrite', linetype='Rewrite', shape='Rewrite')) + 
+    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound, fill='Rewrite'), alpha = 0.2, data=rewrite) +
+    geom_point(data=rewrite, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Rewrite', linetype='Rewrite', shape='Rewrite'), size=3) +    
     
     
     xlab(xlab) + 
     ylab('Execution Time (s)') +
     ggtitle(title) +
-    scale_colour_manual('', breaks=c('Preprocess','Rewrite'), 
-                        values=c('#D55E00','#0072B2')) + 
+    scale_color_manual('', breaks=c('Preprocess','Rewrite'), 
+                       values=c('Preprocess'='#E69F00', 'Rewrite'='#56B4E9')) +
+    scale_fill_manual('', breaks=c('Preprocess','Rewrite'), 
+                      values=c('Preprocess'='#E69F00', 'Rewrite'='#56B4E9')) +
+    scale_linetype_manual('', breaks=c('Preprocess','Rewrite'), 
+                          values=c('solid','dashed')) + 
+    scale_shape_manual('', breaks=c('Preprocess','Rewrite'), 
+                       values=c(16,17)) +
     scale_x_continuous(breaks=c(100,200,300,400,500,600,700,800,900)) +
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = c(.05, .95),
@@ -279,20 +298,26 @@ plot_execution_indexed <- function(results_noindex, results_indexed, scenario, h
   
   
   ggplot() + 
-    geom_line(data=noindexed, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='No-Index')) + 
-    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=noindexed) +
-    geom_point(data=noindexed, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='No-Index'), size=3) + 
+    geom_line(data=noindexed, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='No-Index', linetype='No-Index', shape='No-Index')) + 
+    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound, fill='No-Index'), alpha = 0.2, data=noindexed) +
+    geom_point(data=noindexed, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='No-Index', linetype='No-Index', shape='No-Index'), size=3) + 
     
-    geom_line(data=indexed, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Indexed')) + 
-    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=indexed) +
-    geom_point(data=indexed, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Indexed'), size=3) +    
+    geom_line(data=indexed, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Indexed', linetype='Indexed', shape='Indexed')) + 
+    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound, fill='Indexed'), alpha = 0.2, data=indexed) +
+    geom_point(data=indexed, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Indexed', linetype='Indexed', shape='Indexed'), size=3) +    
     
     
     xlab('Number of insert/select Operations') + 
     ylab('Execution Time (s)') +
     ggtitle(title) +
-    scale_colour_manual('', breaks=c('No-Index','Indexed'), 
-                        values=c('#D55E00','#0072B2')) + 
+    scale_color_manual('', breaks=c('No-Index','Indexed'), 
+                       values=c('No-Index'='#E69F00', 'Indexed'='#56B4E9')) +
+    scale_fill_manual('', breaks=c('No-Index','Indexed'), 
+                      values=c('No-Index'='#E69F00', 'Indexed'='#56B4E9')) +
+    scale_linetype_manual('', breaks=c('No-Index','Indexed'), 
+                          values=c('solid','dashed')) + 
+    scale_shape_manual('', breaks=c('No-Index','Indexed'), 
+                       values=c(16,17)) +
     scale_x_continuous(breaks=c(100,200,300,400,500,600,700,800,900)) +
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = c(.05, .95),
@@ -309,20 +334,26 @@ plot_execution_index_methods <- function(results_index_preprocess, results_index
   
   
   ggplot() + 
-    geom_line(data=preprocess, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Preprocess')) + 
-    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=preprocess) +
-    geom_point(data=preprocess, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Preprocess'), size=3) + 
+    geom_line(data=preprocess, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Preprocess', linetype='Preprocess', shape='Preprocess')) + 
+    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound, fill='Preprocess'), alpha = 0.2, data=preprocess) +
+    geom_point(data=preprocess, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Preprocess', linetype='Preprocess', shape='Preprocess'), size=3) + 
     
-    geom_line(data=rewrite, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Rewrite')) + 
-    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound), alpha = 0.2, data=rewrite) +
-    geom_point(data=rewrite, aes(x = as.numeric(number_of_operations), y = mean_time_taken, colour='Rewrite'), size=3) +    
+    geom_line(data=rewrite, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Rewrite', linetype='Rewrite', shape='Rewrite')) + 
+    geom_ribbon(aes(x=as.numeric(number_of_operations), y=mean_time_taken, ymin = lower_bound, ymax = upper_bound, fill='Rewrite'), alpha = 0.2, data=rewrite) +
+    geom_point(data=rewrite, aes(x = as.numeric(number_of_operations), y = mean_time_taken, color='Rewrite', linetype='Rewrite', shape='Rewrite'), size=3) +    
     
     
     xlab('Number of insert/select Operations') + 
     ylab('Execution Time (s)') +
     ggtitle(title) +
-    scale_colour_manual('', breaks=c('Preprocess','Rewrite'), 
-                        values=c('#D55E00','#0072B2')) + 
+    scale_color_manual('', breaks=c('Preprocess','Rewrite'), 
+                       values=c('Preprocess'='#E69F00', 'Rewrite'='#56B4E9')) +
+    scale_fill_manual('', breaks=c('Preprocess','Rewrite'), 
+                      values=c('Preprocess'='#E69F00', 'Rewrite'='#56B4E9')) +
+    scale_linetype_manual('', breaks=c('Preprocess','Rewrite'), 
+                          values=c('solid','dashed')) + 
+    scale_shape_manual('', breaks=c('Preprocess','Rewrite'), 
+                       values=c(16,17)) +
     scale_x_continuous(breaks=c(100,200,300,400,500,600,700,800,900)) +
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = c(.05, .95),
@@ -342,7 +373,8 @@ plot_execution_time_scenarios_all_bar <- function(results_preprocess_noindex, re
   results$scenario = factor(results$scenario, levels = c(0,0.05,0.5,0.95,1), labels=c("Read-Only","Read-Heavy","50/50","Write-Heavy","Write-Only"))
   
   ggplot() + 
-    geom_bar(data=results, aes(x = scenario, y = mean_time_taken, fill=approach), stat="identity", position=position_dodge(width=0.8), width = 0.7) + 
+    geom_bar(data=results, aes(x = scenario, y = mean_time_taken, fill=approach), 
+             stat="identity", position=position_dodge(width=0.8), width = 0.7) + 
     scale_y_log10() + 
     geom_errorbar(data=results, aes(x = scenario, ymin = lower_bound, ymax = upper_bound, group = approach), 
                   width = 0.2, position=position_dodge(width=0.8), size=1) +
@@ -351,11 +383,10 @@ plot_execution_time_scenarios_all_bar <- function(results_preprocess_noindex, re
     ylab('Execution Time (log(s))') +
     ggtitle(title) +
     scale_fill_manual('', breaks=c('Preprocess (Indexed)','Preprocess (No Index)','Rewrite (Indexed)','Rewrite (No Index)'), 
-                      values=c('#009E73','#56B4E9','#0072B2','#D55E00')) + 
+                      values=c('Preprocess (Indexed)' = '#E69F00', 'Preprocess (No Index)' = '#56B4E9', 'Rewrite (Indexed)' = '#009E73', 'Rewrite (No Index)' = '#F0E442')) + 
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = "bottom",
           legend.justification = "center",
-          # legend.box.just = "center",
           legend.margin = margin(6, 6, 6, 6),
           legend.text = element_text(size=25),
           legend.title = element_text(size=20),
@@ -374,7 +405,7 @@ plot_operations_method_performance <- function(results_operations) {
     ggtitle('') +
     scale_fill_manual('', breaks = c('insertion_first', 'operations_first'), 
                       labels = c('Insertion First', 'Operations First'), 
-                      values = c('insertion_first' = '#0072B2', 'operations_first' = '#D55E00')) +
+                      values = c('insertion_first' = '#E69F00', 'operations_first' = '#56B4E9')) +
     theme(panel.background = element_rect(fill = 'white', colour = 'black'),
           legend.position = "bottom",
           legend.justification = "center",
@@ -384,7 +415,6 @@ plot_operations_method_performance <- function(results_operations) {
           axis.ticks.x = element_blank(), # Remove tick marks
           text = element_text(size = 14)) +
     guides(fill = guide_legend(nrow = 1, byrow = TRUE)) 
-  
 }
 
 plot_operations_method_performance_all_bar <- function(results_noindex, results_indexed, title) {
@@ -396,7 +426,8 @@ plot_operations_method_performance_all_bar <- function(results_noindex, results_
   results = rbind(results_noindex,results_indexed)
   
   ggplot() + 
-    geom_bar(data=results, aes(x = operations_method, y = mean_time_taken, fill=operations_method), stat="identity", position=position_dodge(width=0.8), width = 0.7) + 
+    geom_bar(data=results, aes(x = operations_method, y = mean_time_taken, fill=operations_method), 
+             stat="identity", position=position_dodge(width=0.8), width = 0.7) + 
     geom_errorbar(data=results, aes(x = operations_method, ymin = lower_bound, ymax = upper_bound, group = operations_method), 
                   width = 0.2, position=position_dodge(width=0.8), size=1) +
     
@@ -404,7 +435,7 @@ plot_operations_method_performance_all_bar <- function(results_noindex, results_
     ylab('Execution Time (s)') +
     ggtitle(title) +
     scale_fill_manual('', breaks=c('Operations First (Indexed)','Operations First (No Index)','Insertion First (Indexed)','Insertion First (No Index)'), 
-                      values=c('#0072B2','#56B4E9','#D55E00','#E69F00')) + 
+                      values=c('Operations First (Indexed)' = '#E69F00', 'Operations First (No Index)' = '#56B4E9', 'Insertion First (Indexed)' = '#009E73', 'Insertion First (No Index)' = '#F0E442')) + 
     theme(panel.background = element_rect(fill = 'white', colour = 'black'), 
           legend.position = "bottom",
           legend.justification = "center",
@@ -517,5 +548,6 @@ results_operations_not_indexed <- process_results_operations('initialization exp
 
 # Call the function and save the plot
 ggsave("operations_method_performance.png", plot_operations_method_performance_all_bar(results_operations_not_indexed,results_operations_indexed,''), width = 10, height = 8)
+
 
 
